@@ -59,6 +59,7 @@ LOCAL_APPS = [
     'apps.housekeeping',
     'apps.notifications',
     'apps.reports',
+    'apps.telegram_bot',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -320,3 +321,6 @@ LOGGING = {
 # Frontend
 # ---------------------------------------------------------------------------
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
+# Public https address of this backend (e.g. https://starhotel-backend.onrender.com).
+# When set, Telegram bots use a webhook; otherwise run `manage.py run_telegram_bot` (long polling).
+PUBLIC_API_URL = env('PUBLIC_API_URL', default='').rstrip('/')

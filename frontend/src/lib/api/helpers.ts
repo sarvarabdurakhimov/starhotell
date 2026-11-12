@@ -20,7 +20,7 @@ export function apiError(err: any, fallback = "Xatolik yuz berdi."): string {
 }
 
 export const BOOKING_STATUS: Record<string, string> = {
-  pending: "Kutilmoqda",
+  pending: "So'rov",
   confirmed: "Tasdiqlangan",
   checked_in: "Joylashgan",
   checked_out: "Chiqib ketgan",

@@ -6,7 +6,8 @@ import type { PanelRole } from "@/lib/session";
 export interface PanelInfo {
   hotelId: string;
   role: PanelRole;
-  base: string; // "/boshliq" or "/meneger"
+  base: string; // "/boshliq", "/meneger" or "/xodim"
+  staffRole?: string; // only in the staff panel: receptionist, housekeeping, …
 }
 
 const PanelContext = createContext<PanelInfo | null>(null);

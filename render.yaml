@@ -33,3 +33,6 @@ services:
         value: https://starhotel.vercel.app
       - key: FRONTEND_URL
         value: https://starhotel.vercel.app
+      # Public https address of this backend: Telegram bots then use a webhook
+      - key: PUBLIC_API_URL
+        value: https://starhotel-backend.onrender.com

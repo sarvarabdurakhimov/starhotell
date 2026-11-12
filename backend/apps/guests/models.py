@@ -20,6 +20,10 @@ class Guest(TimestampedModel):
     date_of_birth = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)  # Internal notes — never exposed publicly
     is_vip = models.BooleanField(default=False)
+    # Blacklisted guests cannot book through the Telegram bot; the panel shows a warning.
+    is_blacklisted = models.BooleanField(default=False, db_index=True)
+    blacklist_reason = models.TextField(blank=True)
+    blacklisted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['last_name', 'first_name']

@@ -5,9 +5,12 @@ import { usePanel } from "@/lib/panel-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
 import { asList } from "@/lib/api/helpers";
-import { PaginatedResponse, Room } from "@/types";
+import { HotelMembershipItem, PaginatedResponse, Room } from "@/types";
 import {
   IconSparkles,
+  IconCheck,
+  IconChecks,
+  IconPlayerPlay,
   IconCircleCheck,
   IconAlertCircle,
   IconClock,
@@ -19,7 +22,7 @@ export interface HousekeepingTask {
   id: number;
   room: number;
   room_number: string;
-  assigned_to?: any;
+  assigned_to: number | null;
   status: "dirty" | "in_progress" | "clean" | "inspected";
   status_display: string;
   notes: string;
@@ -35,6 +38,7 @@ export default function HousekeepingPage() {
     room: "",
     status: "dirty",
     notes: "",
+    assigned_to: "",
   });
 
   const { data: tasksData, isLoading } = useQuery({
@@ -51,16 +55,33 @@ export default function HousekeepingPage() {
   const { data: rooms = [] } = useQuery({
     queryKey: ["rooms", hotelId],
     queryFn: async () =>
-      asList((await apiClient.get<PaginatedResponse<Room>>(`/rooms/hotels/${hotelId}/rooms/`)).data),
+      asList((await apiClient.get<PaginatedResponse<Room>>(`/rooms/hotels/${hotelId}/rooms/`, { params: { page_size: 100 } })).data),
   });
+
+  // Staff who can be given a task (moved here from the manager dashboard)
+  const { data: members = [] } = useQuery<HotelMembershipItem[]>({
+    queryKey: ["hotel-members", hotelId],
+    queryFn: async () => {
+      try {
+        return asList(
+          (await apiClient.get<PaginatedResponse<HotelMembershipItem>>(`/memberships/hotels/${hotelId}/members/`)).data
+        );
+      } catch {
+        return [];
+      }
+    },
+  });
+  const memberName = (userId: number | null) =>
+    members.find((m) => m.user.id === userId)?.user.full_name || "—";
 
   const createTaskMutation = useMutation({
     mutationFn: async (payload: any) =>
       apiClient.post(`/housekeeping/hotels/${hotelId}/housekeeping/`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["housekeeping-tasks", hotelId] });
+      queryClient.invalidateQueries({ queryKey: ["manager-operations", hotelId] });
       setShowModal(false);
-      setFormData({ room: "", status: "dirty", notes: "" });
+      setFormData({ room: "", status: "dirty", notes: "", assigned_to: "" });
     },
   });
 
@@ -71,6 +92,7 @@ export default function HousekeepingPage() {
       queryClient.invalidateQueries({ queryKey: ["housekeeping-tasks", hotelId] });
       // "Tayyor" xonani bo'sh qiladi
       queryClient.invalidateQueries({ queryKey: ["rooms", hotelId] });
+      queryClient.invalidateQueries({ queryKey: ["manager-operations", hotelId] });
     },
   });
 
@@ -135,6 +157,7 @@ export default function HousekeepingPage() {
             <tr className="border-b bg-stone-50 text-stone-700 font-bold uppercase tracking-wider">
               <th className="py-3 px-5">Xona</th>
               <th className="py-3 px-5">Holat</th>
+              <th className="py-3 px-5">Xodim</th>
               <th className="py-3 px-5">Izoh</th>
               <th className="py-3 px-5">Sana</th>
               <th className="py-3 px-5 text-right">Amal</th>
@@ -143,14 +166,14 @@ export default function HousekeepingPage() {
           <tbody className="divide-y divide-stone-100">
             {isLoading && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-stone-400">
+                <td colSpan={6} className="py-8 text-center text-stone-400">
                   Yuklanmoqda...
                 </td>
               </tr>
             )}
             {!isLoading && tasks.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-stone-400">
+                <td colSpan={6} className="py-12 text-center text-stone-400">
                   Topshiriq yo&apos;q
                 </td>
               </tr>
@@ -181,6 +204,7 @@ export default function HousekeepingPage() {
                       : "Tayyor"}
                   </span>
                 </td>
+                <td className="py-3 px-5 font-semibold text-stone-900">{memberName(task.assigned_to)}</td>
                 <td className="py-3 px-5 text-stone-600 max-w-xs truncate">
                   {task.notes || "—"}
                 </td>
@@ -193,9 +217,11 @@ export default function HousekeepingPage() {
                       onClick={() =>
                         updateStatusMutation.mutate({ taskId: task.id, status: "in_progress" })
                       }
-                      className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-[11px] font-semibold rounded transition"
+                      title="Boshlash"
+                      aria-label="Boshlash"
+                      className="p-1.5 inline-flex bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded transition"
                     >
-                      Boshlash
+                      <IconPlayerPlay className="w-4 h-4" />
                     </button>
                   )}
                   {task.status === "in_progress" && (
@@ -203,9 +229,11 @@ export default function HousekeepingPage() {
                       onClick={() =>
                         updateStatusMutation.mutate({ taskId: task.id, status: "clean" })
                       }
-                      className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 text-[11px] font-semibold rounded transition"
+                      title="Tugadi"
+                      aria-label="Tugadi"
+                      className="p-1.5 inline-flex bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 rounded transition"
                     >
-                      Tugadi
+                      <IconCheck className="w-4 h-4" />
                     </button>
                   )}
                   {task.status === "clean" && (
@@ -213,9 +241,11 @@ export default function HousekeepingPage() {
                       onClick={() =>
                         updateStatusMutation.mutate({ taskId: task.id, status: "inspected" })
                       }
-                      className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 text-[11px] font-semibold rounded transition"
+                      title="Qabul qilish"
+                      aria-label="Qabul qilish"
+                      className="p-1.5 inline-flex bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded transition"
                     >
-                      Qabul qilish
+                      <IconChecks className="w-4 h-4" />
                     </button>
                   )}
                 </td>
@@ -223,6 +253,32 @@ export default function HousekeepingPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Staff (moved here from the manager dashboard) */}
+      <div>
+        <h2 className="font-serif font-bold text-sm text-stone-900 mb-3">Xodimlar</h2>
+        {members.length === 0 ? (
+          <p className="text-xs text-stone-400">Yo&apos;q</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            {members.map((m) => {
+              const open = tasks.filter((t) => t.assigned_to === m.user.id && t.status !== "inspected").length;
+              return (
+                <div key={m.id} className="p-3 bg-white border border-stone-200 rounded flex items-center justify-between shadow-sm">
+                  <div className="min-w-0">
+                    <div className="font-bold text-xs text-stone-900 truncate">{m.user.full_name || m.user.email}</div>
+                    <div className="text-[11px] text-stone-500 font-mono truncate">{m.user.email}</div>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-stone-100 text-stone-700 uppercase">{m.role}</span>
+                    <div className="mt-1 text-[10px] text-stone-500">{open} ta topshiriq</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Task Creation Modal */}
@@ -239,6 +295,7 @@ export default function HousekeepingPage() {
                   room: Number(formData.room),
                   status: formData.status,
                   notes: formData.notes,
+                  assigned_to: formData.assigned_to ? Number(formData.assigned_to) : null,
                 });
               }}
               className="space-y-4 text-xs font-sans"
@@ -257,6 +314,24 @@ export default function HousekeepingPage() {
                   {rooms.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.room_number}-Xona ({r.floor}-qavat)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 uppercase mb-1">
+                  Xodim
+                </label>
+                <select
+                  value={formData.assigned_to}
+                  onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                  className="w-full px-3 py-2 border border-stone-300 rounded text-xs bg-white focus:outline-none focus:border-stone-900"
+                >
+                  <option value="">— Biriktirilmagan —</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.user.id}>
+                      {m.user.full_name || m.user.email}
                     </option>
                   ))}
                 </select>

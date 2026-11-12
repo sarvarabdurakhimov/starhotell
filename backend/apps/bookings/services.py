@@ -41,6 +41,9 @@ def create_booking(
     num_children: int,
     special_requests: str,
     created_by,
+    status: str = BookingStatus.CONFIRMED,
+    source: str = 'panel',
+    telegram_chat=None,
 ) -> Booking:
     """
     Create a new booking with concurrency protection.
@@ -77,15 +80,17 @@ def create_booking(
         total_amount=total,
         currency=room.hotel.currency,
         special_requests=special_requests,
-        status=BookingStatus.CONFIRMED,
+        status=status,
+        source=source,
+        telegram_chat=telegram_chat,
     )
 
     BookingAuditLog.objects.create(
         booking=booking,
         changed_by=created_by,
         old_status='',
-        new_status=BookingStatus.CONFIRMED,
-        notes='Booking created.',
+        new_status=status,
+        notes='Booking request from Telegram.' if source == 'telegram' else 'Booking created.',
     )
 
     logger.info('Booking %s created for room %s hotel %s', booking.reference, room_id, hotel_id)

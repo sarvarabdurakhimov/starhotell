@@ -7,8 +7,10 @@ import { apiClient } from "@/lib/api/client";
 import { PaginatedResponse, Expense, ExpenseCategory, ExpenseStatus } from "@/types";
 import {
   IconAlertTriangle,
+  IconArrowBackUp,
   IconArrowDownRight,
   IconBuildingCommunity,
+  IconCheck,
   IconCircleCheck,
   IconCircleX,
   IconClock,
@@ -18,6 +20,7 @@ import {
   IconReceipt,
   IconRotate,
   IconShieldCheck,
+  IconStar,
   IconTrendingDown,
 } from "@tabler/icons-react";
 
@@ -145,8 +148,9 @@ export default function PaymentsAndExpensesPage() {
     }
   });
 
+  // Money received: refunded payments still count here, refunds are subtracted below
   const totalSucceeded = payments
-    .filter((p) => p.status === "succeeded")
+    .filter((p) => p.status === "succeeded" || p.status === "refunded" || p.status === "partially_refunded")
     .reduce((acc, curr) => acc + parseFloat(curr.amount || "0"), 0);
 
   const totalRefunded = payments
@@ -270,8 +274,8 @@ export default function PaymentsAndExpensesPage() {
             <span className="text-xs font-bold text-stone-300 uppercase tracking-wider">
               Sof foyda
             </span>
-            <div className="w-7 h-7 rounded bg-stone-800 text-amber-400 border border-stone-700 flex items-center justify-center font-bold text-xs">
-              ★
+            <div className="w-7 h-7 rounded bg-stone-800 text-amber-400 border border-stone-700 flex items-center justify-center">
+              <IconStar className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
@@ -322,17 +326,19 @@ export default function PaymentsAndExpensesPage() {
                           ? "bg-emerald-50 text-emerald-900 border-emerald-300"
                           : p.status === "pending"
                           ? "bg-amber-50 text-amber-900 border-amber-300"
-                          : p.status === "refunded"
+                          : p.status === "refunded" || p.status === "partially_refunded"
                           ? "bg-stone-100 text-stone-800 border-stone-300"
                           : "bg-rose-50 text-rose-800 border-rose-300"
                       }`}
                     >
                       {p.status === "succeeded"
-                        ? "To'landi ✓"
+                        ? <span className="inline-flex items-center gap-1">To&apos;landi <IconCheck className="w-3 h-3" /></span>
                         : p.status === "pending"
                         ? "Kutilmoqda"
                         : p.status === "refunded"
                         ? "Qaytarildi"
+                        : p.status === "partially_refunded"
+                        ? `Qisman qaytarildi (${Number(p.refunded_amount).toLocaleString()})`
                         : "Bekor qilindi"}
                     </span>
                   </td>
@@ -402,7 +408,7 @@ export default function PaymentsAndExpensesPage() {
                         : "bg-stone-100 text-stone-700 border-stone-300"
                     }`}>
                       {exp.status === "approved"
-                        ? "Tasdiqlangan ✓"
+                        ? <span className="inline-flex items-center gap-1">Tasdiqlangan <IconCheck className="w-3 h-3" /></span>
                         : exp.status === "pending_approval"
                         ? "Kutilmoqda"
                         : exp.status === "reversed"
@@ -417,9 +423,11 @@ export default function PaymentsAndExpensesPage() {
                     {exp.status === "pending_approval" && (
                       <button
                         onClick={() => approveExpenseMutation.mutate(exp.id)}
-                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold transition"
+                        title="Tasdiqlash"
+                        aria-label="Tasdiqlash"
+                        className="p-1.5 inline-flex bg-emerald-600 hover:bg-emerald-700 text-white rounded transition"
                       >
-                        Tasdiqlash
+                        <IconCheck className="w-4 h-4" />
                       </button>
                     )}
                     {exp.status !== "reversed" && (
@@ -428,9 +436,11 @@ export default function PaymentsAndExpensesPage() {
                           setSelectedExpenseId(exp.id);
                           setReversalModalOpen(true);
                         }}
-                        className="px-2.5 py-1 text-[11px] font-semibold text-rose-700 hover:text-rose-900 border border-rose-200 hover:bg-rose-50 rounded transition"
+                        title="Qaytarish"
+                        aria-label="Qaytarish"
+                        className="p-1.5 inline-flex text-rose-700 hover:text-rose-900 border border-rose-200 hover:bg-rose-50 rounded transition"
                       >
-                        Qaytarish
+                        <IconArrowBackUp className="w-4 h-4" />
                       </button>
                     )}
                   </td>

@@ -1,0 +1,20 @@
+# Production image for Railway (the plain Dockerfile is for local development).
+FROM python:3.13-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DJANGO_SETTINGS_MODULE=config.settings.railway
+
+WORKDIR /app
+
+COPY requirements/ /app/requirements/
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements/production.txt
+
+COPY . /app/
+RUN DJANGO_SECRET_KEY=build-only python manage.py collectstatic --noinput
+
+RUN groupadd -r django && useradd -r -g django django && chown -R django:django /app
+USER django
+
+# Railway passes the port in $PORT. Migrations run first, then bots are pointed at this server's webhook.
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py set_telegram_webhooks && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 60 --access-logfile -"]

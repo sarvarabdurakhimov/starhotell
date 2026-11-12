@@ -7,7 +7,10 @@ import { apiClient } from "@/lib/api/client";
 import { apiError, asList } from "@/lib/api/helpers";
 import { clearSession, ROLE_BASE, setSession } from "@/lib/session";
 import {
+  IconArrowRight,
   IconBuilding,
+  IconCheck,
+  IconCircle,
   IconCircleCheck,
   IconCircleX,
   IconEye,
@@ -17,6 +20,7 @@ import {
   IconShieldCheck,
   IconSparkles,
   IconUser,
+  IconX,
 } from "@tabler/icons-react";
 
 export default function RegisterPage() {
@@ -179,7 +183,7 @@ export default function RegisterPage() {
                   isGmailValid ? "text-emerald-700 font-mono" : "text-amber-800"
                 }`}
               >
-                {isGmailValid ? "✓" : "faqat @gmail.com"}
+                {isGmailValid ? <IconCheck className="w-3.5 h-3.5" /> : "faqat @gmail.com"}
               </span>
             )}
           </div>
@@ -296,7 +300,13 @@ export default function RegisterPage() {
                     isPasswordStrong ? "text-emerald-700" : "text-amber-800"
                   }`}
                 >
-                  {isPasswordStrong ? "✓ Ishonchli" : "Zaif"}
+                  {isPasswordStrong ? (
+                    <span className="inline-flex items-center gap-1">
+                      <IconCheck className="w-3.5 h-3.5" /> Ishonchli
+                    </span>
+                  ) : (
+                    "Zaif"
+                  )}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-1 text-[10px]">
@@ -305,28 +315,28 @@ export default function RegisterPage() {
                     hasMinLength ? "text-emerald-800 font-semibold" : "text-stone-400"
                   }`}
                 >
-                  {hasMinLength ? "✓" : "○"} 8+ belgi
+                  {hasMinLength ? <IconCheck className="w-3 h-3" /> : <IconCircle className="w-3 h-3" />} 8+ belgi
                 </div>
                 <div
                   className={`flex items-center gap-1 ${
                     hasUpperCase ? "text-emerald-800 font-semibold" : "text-stone-400"
                   }`}
                 >
-                  {hasUpperCase ? "✓" : "○"} A-Z
+                  {hasUpperCase ? <IconCheck className="w-3 h-3" /> : <IconCircle className="w-3 h-3" />} A-Z
                 </div>
                 <div
                   className={`flex items-center gap-1 ${
                     hasNumber ? "text-emerald-800 font-semibold" : "text-stone-400"
                   }`}
                 >
-                  {hasNumber ? "✓" : "○"} 0-9
+                  {hasNumber ? <IconCheck className="w-3 h-3" /> : <IconCircle className="w-3 h-3" />} 0-9
                 </div>
                 <div
                   className={`flex items-center gap-1 ${
                     hasSpecialChar ? "text-emerald-800 font-semibold" : "text-stone-400"
                   }`}
                 >
-                  {hasSpecialChar ? "✓" : "○"} !@#$
+                  {hasSpecialChar ? <IconCheck className="w-3 h-3" /> : <IconCircle className="w-3 h-3" />} !@#$
                 </div>
               </div>
             </div>
@@ -356,9 +366,13 @@ export default function RegisterPage() {
           {formData.passwordConfirm && (
             <div className="mt-1 text-[10px]">
               {passwordsMatch ? (
-                <span className="text-emerald-800 font-semibold">✓ Mos</span>
+                <span className="text-emerald-800 font-semibold inline-flex items-center gap-1">
+                  <IconCheck className="w-3 h-3" /> Mos
+                </span>
               ) : (
-                <span className="text-rose-700 font-semibold">✕ Mos emas</span>
+                <span className="text-rose-700 font-semibold inline-flex items-center gap-1">
+                  <IconX className="w-3 h-3" /> Mos emas
+                </span>
               )}
             </div>
           )}
@@ -369,7 +383,13 @@ export default function RegisterPage() {
           disabled={loading || !isPasswordStrong || !passwordsMatch || !isGmailValid}
           className="w-full py-2.5 px-4 text-sm font-semibold text-white bg-stone-900 hover:bg-stone-800 active:bg-black rounded shadow transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {loading ? "Yaratilmoqda..." : "Ro'yxatdan o'tish →"}
+          {loading ? (
+            "Yaratilmoqda..."
+          ) : (
+            <>
+              {"Ro'yxatdan o'tish"} <IconArrowRight className="w-4 h-4" />
+            </>
+          )}
         </button>
       </form>
 

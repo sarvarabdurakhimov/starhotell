@@ -1,4 +1,5 @@
 """Cookie-based JWT authentication backend."""
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.conf import settings
@@ -23,8 +24,11 @@ class CookieJWTAuthentication(JWTAuthentication):
         raw_token = request.COOKIES.get(cookie_name)
         if raw_token is None:
             return None
+        # A stale cookie (expired, or its user was deleted) counts as "not logged in".
+        # Raising here would block even the login request that replaces the cookie;
+        # protected views still answer 401 through their permission checks.
         try:
             validated_token = self.get_validated_token(raw_token)
-        except TokenError:
+            return self.get_user(validated_token), validated_token
+        except (TokenError, AuthenticationFailed):
             return None
-        return self.get_user(validated_token), validated_token

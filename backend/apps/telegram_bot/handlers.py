@@ -1,0 +1,562 @@
+"""Booking dialog: turns one Telegram update into replies."""
+import calendar
+import html
+import logging
+from datetime import date, timedelta
+
+from apps.bookings.models import BookingStatus
+from apps.rooms.models import RoomType, RoomTypePhoto
+
+from . import services as svc
+from .api import TelegramAPI, TelegramError
+from .models import BotConfig, TelegramChat
+from .texts import TEXTS, t
+
+logger = logging.getLogger(__name__)
+
+
+class Ctx:
+    """One update being handled: the bot, the chat and shortcuts to reply."""
+
+    def __init__(self, bot: BotConfig, chat: TelegramChat):
+        self.bot, self.chat = bot, chat
+        self.api = TelegramAPI(bot.token)
+        self.lang = chat.language
+
+    def t(self, key, **kw):
+        return t(self.lang, key, **kw)
+
+    def say(self, text, markup=None):
+        """A message that stays in the chat (results, notices)."""
+        return self.api.call('sendMessage', chat_id=self.chat.chat_id, text=text, parse_mode='HTML', reply_markup=markup)
+
+    # The current question and the guest's answers to it are tracked, and removed
+    # as soon as the next question is asked, so only the open question is on screen.
+
+    def track(self, *message_ids):
+        known = list(self.chat.data.get('q') or [])
+        ids = [i for i in message_ids if i and i not in known]
+        if ids:
+            self.chat.data = {**self.chat.data, 'q': list(self.chat.data.get('q') or []) + ids}
+            self.chat.save(update_fields=['data', 'updated_at'])
+
+    def clear(self):
+        ids = list(self.chat.data.get('q') or [])
+        self.api.delete_messages(self.chat.chat_id, ids)  # one call; gone / too old ones are skipped
+        if ids:
+            self.chat.data = {**self.chat.data, 'q': []}
+            self.chat.save(update_fields=['data', 'updated_at'])
+
+    def ask(self, text, markup=None):
+        """Replace the previous question with this one."""
+        self.clear()
+        return self.ask_more(text, markup)
+
+    def ask_more(self, text, markup=None):
+        """Another message belonging to the current question (e.g. one room card)."""
+        result = self.say(text, markup)
+        self.track((result or {}).get('message_id'))
+        return result
+
+    def set_state(self, state, **data):
+        self.chat.state = state
+        if data:
+            self.chat.data = {**self.chat.data, **data}
+        self.chat.save(update_fields=['state', 'data', 'updated_at'])
+
+
+# ── keyboards ───────────────────────────────────────────────────────────────
+
+def main_menu(lang):
+    return {
+        'keyboard': [
+            [{'text': t(lang, 'menu_book')}],
+            [{'text': t(lang, 'menu_my')}, {'text': t(lang, 'menu_reviews')}],
+            [{'text': t(lang, 'menu_contact')}, {'text': t(lang, 'menu_lang')}],
+        ],
+        'resize_keyboard': True,
+    }
+
+
+def lang_keyboard():
+    return {'inline_keyboard': [[
+        {'text': "🇺🇿 O'zbekcha", 'callback_data': 'lang:uz'},
+        {'text': '🇷🇺 Русский', 'callback_data': 'lang:ru'},
+    ]]}
+
+
+def month_keyboard(lang, kind, year, month, min_day: date, max_day: date):
+    """Inline month calendar. kind: 'in' (arrival) or 'out' (departure)."""
+    rows = []
+    prev_m = date(year, month, 1) - timedelta(days=1)
+    next_m = date(year, month, calendar.monthrange(year, month)[1]) + timedelta(days=1)
+    nav = []
+    nav.append({'text': '◀️', 'callback_data': f'cal:{kind}:{prev_m:%Y-%m}'} if prev_m >= min_day.replace(day=1) else {'text': ' ', 'callback_data': 'noop'})
+    nav.append({'text': f"{t(lang, 'months')[month - 1]} {year}", 'callback_data': 'noop'})
+    nav.append({'text': '▶️', 'callback_data': f'cal:{kind}:{next_m:%Y-%m}'} if next_m <= max_day else {'text': ' ', 'callback_data': 'noop'})
+    rows.append(nav)
+    rows.append([{'text': w, 'callback_data': 'noop'} for w in t(lang, 'weekdays')])
+    for week in calendar.Calendar().monthdayscalendar(year, month):
+        row = []
+        for d in week:
+            if d == 0:
+                row.append({'text': ' ', 'callback_data': 'noop'})
+                continue
+            day = date(year, month, d)
+            if min_day <= day <= max_day:
+                row.append({'text': str(d), 'callback_data': f'{kind}:{day.isoformat()}'})
+            else:
+                row.append({'text': '·', 'callback_data': 'noop'})
+        rows.append(row)
+    if kind == 'out':
+        rows.append([{'text': t(lang, 'back'), 'callback_data': 'book'}])
+    return {'inline_keyboard': rows}
+
+
+def guests_keyboard(lang, max_guests):
+    nums = list(range(1, max(max_guests, 1) + 1))[:8]
+    rows = [[{'text': t(lang, 'guests_n', n=n), 'callback_data': f'g:{n}'} for n in nums[i:i + 4]] for i in range(0, len(nums), 4)]
+    rows.append([{'text': t(lang, 'back'), 'callback_data': 'book'}])
+    return {'inline_keyboard': rows}
+
+
+# ── steps ───────────────────────────────────────────────────────────────────
+
+def _max_advance(bot):
+    s = getattr(bot.hotel, 'settings', None)
+    return getattr(s, 'max_advance_booking_days', 365) or 365
+
+
+def ask_checkin(c: Ctx, month: str = None):
+    today = svc.hotel_today(c.bot)
+    last = today + timedelta(days=_max_advance(c.bot))
+    y, m = (int(x) for x in month.split('-')) if month else (today.year, today.month)
+    return c.t('pick_checkin'), month_keyboard(c.lang, 'in', y, m, today, last)
+
+
+def ask_checkout(c: Ctx, month: str = None):
+    ci = date.fromisoformat(c.chat.data['ci'])
+    first, last = ci + timedelta(days=1), ci + timedelta(days=svc.MAX_NIGHTS)
+    y, m = (int(x) for x in month.split('-')) if month else (first.year, first.month)
+    return c.t('pick_checkout', check_in=svc.fmt_date(ci)), month_keyboard(c.lang, 'out', y, m, first, last)
+
+
+def _send_photo(c: Ctx, photo: RoomTypePhoto, caption='', markup=None):
+    """Send a stored photo; upload once per bot, then reuse Telegram's file_id."""
+    key = c.bot.bot_username or str(c.bot.id)
+    file_id = (photo.telegram_file_ids or {}).get(key)
+    if file_id:
+        try:
+            return c.api.call('sendPhoto', chat_id=c.chat.chat_id, photo=file_id, caption=caption,
+                              parse_mode='HTML', reply_markup=markup)
+        except TelegramError:
+            pass  # stale file_id: upload again
+    result = c.api.send_photo_bytes(c.chat.chat_id, bytes(photo.image), caption, markup)
+    sizes = (result or {}).get('photo') or []
+    if sizes:
+        photo.telegram_file_ids = {**(photo.telegram_file_ids or {}), key: sizes[-1]['file_id']}
+        photo.save(update_fields=['telegram_file_ids'])
+    return result
+
+
+def show_rooms(c: Ctx):
+    d = c.chat.data
+    ci, co, guests = date.fromisoformat(d['ci']), date.fromisoformat(d['co']), int(d['guests'])
+    nights = (co - ci).days
+    types = svc.available_room_types(c.bot.hotel_id, ci, co, guests)
+    if not types:
+        c.clear()
+        c.say(c.t('no_rooms', guests=guests))  # stays, so the guest knows why we start over
+        c.set_state('dates')
+        return c.ask_more(*ask_checkin(c))
+
+    c.ask(c.t('rooms_found', check_in=svc.fmt_date(ci), check_out=svc.fmt_date(co), guests=guests))
+    for rt in types:
+        caption = c.t(
+            'room_caption', name=rt.name, description=(rt.description or '')[:300], occupancy=rt.max_occupancy,
+            nights=nights, total=svc.price_text(c.bot, rt.base_price * nights),
+        )
+        if rt.amenities:
+            caption += '\n' + c.t('room_amenities', amenities=', '.join(map(str, rt.amenities))[:200])
+        photos = list(rt.photos.all())
+        buttons = [[{'text': c.t('choose_room'), 'callback_data': f'rt:{rt.id}'}]]
+        if len(photos) > 1:
+            buttons.append([{'text': f"{c.t('more_photos')} ({len(photos)})", 'callback_data': f'ph:{rt.id}'}])
+        markup = {'inline_keyboard': buttons}
+        if photos:
+            c.track((_send_photo(c, photos[0], caption[:1024], markup) or {}).get('message_id'))
+        else:
+            c.ask_more(caption, markup)
+
+
+def ask_name_or_phone(c: Ctx):
+    # Asked again on every booking: the flags live in this booking's dialog data only
+    if not (c.chat.data.get('got_name') and c.chat.first_name and c.chat.last_name):
+        c.set_state('name')
+        return c.ask(c.t('ask_name'), {'remove_keyboard': True})
+    if not (c.chat.data.get('got_phone') and c.chat.phone):
+        c.set_state('phone')
+        return c.ask(c.t('ask_phone'), {
+            'keyboard': [[{'text': c.t('share_phone'), 'request_contact': True}]],
+            'resize_keyboard': True, 'one_time_keyboard': True,
+        })
+    return show_summary(c)
+
+
+def show_summary(c: Ctx):
+    d = c.chat.data
+    rt = RoomType.objects.filter(pk=d.get('rt'), hotel_id=c.bot.hotel_id).first()
+    if not rt:
+        return go_menu(c)
+    ci, co = date.fromisoformat(d['ci']), date.fromisoformat(d['co'])
+    nights = (co - ci).days
+    c.set_state('confirm')
+    c.ask('👇', main_menu(c.lang))  # brings the menu keyboard back after the phone button
+    return c.ask_more(
+        c.t('summary', hotel=c.bot.hotel.name, room_type=rt.name, check_in=svc.fmt_date(ci), check_out=svc.fmt_date(co),
+            nights=nights, guests=d['guests'], name=f'{c.chat.first_name} {c.chat.last_name}'.strip(),
+            phone=c.chat.phone, total=svc.price_text(c.bot, rt.base_price * nights)),
+        {'inline_keyboard': [[
+            {'text': c.t('confirm'), 'callback_data': 'ok'},
+            {'text': c.t('cancel'), 'callback_data': 'no'},
+        ]]},
+    )
+
+
+def go_menu(c: Ctx, text=None):
+    c.clear()
+    c.set_state('')
+    return c.say(text or c.t('welcome', hotel=c.bot.hotel.name), main_menu(c.lang))
+
+
+def my_bookings(c: Ctx):
+    bookings = list(c.chat.bookings.select_related('room__room_type').order_by('-check_in')[:10])
+    if not bookings:
+        return c.say(c.t('my_empty'))
+    c.say(c.t('my_title'))
+    for b in bookings:
+        c.say(*booking_card(c, b))
+
+
+def is_open_request(b) -> bool:
+    """A request the manager has not answered yet: the guest may withdraw it at once."""
+    return b.status == BookingStatus.PENDING and not b.approved_at
+
+
+def guest_can_cancel(c: Ctx, b) -> bool:
+    """An accepted booking: the guest may ask the manager to cancel it, until the check-in day ends."""
+    accepted = b.status == BookingStatus.CONFIRMED or (b.status == BookingStatus.PENDING and b.approved_at)
+    return bool(accepted) and not b.cancel_requested_at and b.check_in >= svc.hotel_today(c.bot)
+
+
+def booking_card(c: Ctx, b):
+    st = c.t('status')
+    if b.status == BookingStatus.PENDING:
+        status = st['to_pay'].format(due=svc.local_dt(c.bot, b.payment_due_at)) if b.approved_at and b.payment_due_at else st['waiting']
+    else:
+        status = st.get(b.status, b.status)
+    if b.cancel_requested_at and b.status in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
+        status += '\n' + st['cancel_pending']
+    text = (f"<b>{b.reference}</b>\n🛏 {b.room.room_type.name}\n"
+            f"📅 {svc.fmt_date(b.check_in)} — {svc.fmt_date(b.check_out)}\n"
+            f"💰 {svc.price_text(c.bot, b.total_amount)}\n{status}")
+    buttons = []
+    if svc.payable(b, c.bot) and svc.payments_enabled(c.bot) and not b.cancel_requested_at:
+        buttons.append([{'text': c.t('pay_btn'), 'callback_data': f'pay:{b.id}'}])
+    if is_open_request(b):
+        buttons.append([{'text': c.t('cancel_request'), 'callback_data': f'cx:{b.id}'}])
+    elif guest_can_cancel(c, b):
+        buttons.append([{'text': c.t('cancel_booking'), 'callback_data': f'cx:{b.id}'}])
+    return text, ({'inline_keyboard': buttons} if buttons else None)
+
+
+REVIEWS_PAGE = 5
+
+
+def reviews_page(c: Ctx, offset: int = 0):
+    """The hotel's guest reviews, 5 per page, newest first. Returns (text, markup)."""
+    stats, reviews = svc.hotel_reviews(c.bot, offset, REVIEWS_PAGE)
+    leave = [{'text': c.t('reviews_leave'), 'callback_data': 'rvl'}]
+    if not stats['count']:
+        return c.t('reviews_empty'), {'inline_keyboard': [leave]}
+    lines = [c.t('reviews_title', hotel=html.escape(c.bot.hotel.name), avg=f"{stats['avg']:.1f}", count=stats['count'])]
+    for r in reviews:
+        # Privacy: first name and last-name initial only
+        last = r.guest.last_name.strip()
+        name = html.escape(f"{r.guest.first_name.strip()} {last[0]}." if last else r.guest.first_name.strip() or '—')
+        # Keep 5 reviews well inside Telegram's 4096-character message limit
+        body = r.comment if len(r.comment) <= 450 else r.comment[:450].rstrip() + '…'
+        comment = html.escape(body) if body else c.t('reviews_no_comment')
+        lines.append(f"{'⭐' * r.rating}  <b>{name}</b> · {svc.fmt_date(r.created_at.date())}\n{comment}")
+    nav = []
+    if offset > 0:
+        nav.append({'text': '◀️', 'callback_data': f'rvp:{max(0, offset - REVIEWS_PAGE)}'})
+    if offset + REVIEWS_PAGE < stats['count']:
+        nav.append({'text': f"▶️ {offset + REVIEWS_PAGE + 1}–{min(stats['count'], offset + 2 * REVIEWS_PAGE)}",
+                    'callback_data': f'rvp:{offset + REVIEWS_PAGE}'})
+    rows = ([nav] if nav else []) + [leave]
+    return '\n\n'.join(lines), {'inline_keyboard': rows}
+
+
+def leave_review(c: Ctx):
+    """Offer the stars for the guest's latest finished stay that has no rating yet."""
+    b = svc.unrated_stay(c.chat)
+    if not b:
+        return c.say(c.t('reviews_need_stay'))
+    rows = [[{'text': '⭐' * n, 'callback_data': f'rv:{b.id}:{n}'}] for n in range(5, 0, -1)]
+    return c.say(c.t('reviews_pick', reference=b.reference, check_in=svc.fmt_date(b.check_in), check_out=svc.fmt_date(b.check_out)),
+                 {'inline_keyboard': rows})
+
+
+def contact_info(c: Ctx):
+    h = c.bot.hotel
+    address = ', '.join(x for x in [h.address_line1, h.city] if x)
+    return c.say(c.t('contact', hotel=h.name, address=address, phone=h.phone or '—'))
+
+
+# ── dispatch ────────────────────────────────────────────────────────────────
+
+MENU = {key: {TEXTS[l][key] for l in TEXTS} for key in ('menu_book', 'menu_my', 'menu_reviews', 'menu_contact', 'menu_lang')}
+FLOW_STATES = ('dates', 'guests', 'rooms', 'details', 'name', 'phone', 'confirm')
+
+
+def _chat_for(bot: BotConfig, user: dict, chat_id: int) -> TelegramChat:
+    chat, created = TelegramChat.objects.get_or_create(
+        bot=bot, chat_id=chat_id,
+        defaults={'username': user.get('username') or '',
+                  'language': 'ru' if (user.get('language_code') or '').startswith('ru') else 'uz'},
+    )
+    if user.get('username') and chat.username != user['username']:
+        chat.username = user['username']
+        chat.save(update_fields=['username'])
+    chat._is_new = created
+    return chat
+
+
+def start_booking(c: Ctx):
+    if svc.blocked(c.chat):
+        reset_dialog(c)
+        return c.say(c.t('blocked'))
+    pending = svc.open_request(c.chat)
+    if pending:
+        c.clear()
+        return c.say(c.t('has_pending', reference=pending.reference))
+    reset_dialog(c)  # a new booking always starts from the first question
+    c.set_state('dates')
+    return c.ask(*ask_checkin(c))
+
+
+def reset_dialog(c: Ctx):
+    """Forget the unfinished booking dialog (dates, guests, room, name/phone answers)."""
+    c.clear()
+    c.chat.state = ''
+    c.chat.data = {}
+    c.chat.save(update_fields=['state', 'data', 'updated_at'])
+
+
+def on_message(bot: BotConfig, msg: dict):
+    if msg.get('chat', {}).get('type') != 'private':
+        return
+    chat = _chat_for(bot, msg.get('from', {}), msg['chat']['id'])
+    c = Ctx(bot, chat)
+
+    if 'successful_payment' in msg:
+        return svc.handle_successful_payment(bot, chat, msg['successful_payment'])
+
+    # The guest's answers during booking go away together with the question
+    if chat.state in FLOW_STATES:
+        c.track(msg.get('message_id'))
+
+    if 'contact' in msg and chat.state == 'phone':
+        contact = msg['contact']
+        if contact.get('user_id') and contact['user_id'] != msg.get('from', {}).get('id'):
+            return c.ask_more(c.t('phone_own'))
+        phone = contact.get('phone_number', '')
+        chat.phone = phone if phone.startswith('+') else f'+{phone}'
+        chat.save(update_fields=['phone'])
+        c.set_state(chat.state, got_phone=True)
+        return show_summary(c)
+
+    text = (msg.get('text') or '').strip()
+    if text.startswith('/start'):
+        # e.g. the guest cleared the chat mid-booking: start over from the language question
+        reset_dialog(c)
+        c.track(msg.get('message_id'))
+        return c.ask(TEXTS['uz']['choose_lang'], lang_keyboard())
+    if text in MENU['menu_book'] or text == '/book':
+        c.track(msg.get('message_id'))
+        return start_booking(c)
+    if text in MENU['menu_my']:
+        c.clear()
+        c.set_state('')
+        return my_bookings(c)
+    if text in MENU['menu_reviews'] or text == '/reviews':
+        c.clear()
+        c.set_state('')
+        return c.say(*reviews_page(c))
+    if text in MENU['menu_contact']:
+        c.clear()
+        c.set_state('')
+        return contact_info(c)
+    if text in MENU['menu_lang']:
+        c.track(msg.get('message_id'))
+        c.set_state('')
+        return c.ask(TEXTS['uz']['choose_lang'], lang_keyboard())
+
+    if chat.state == 'review' and text:
+        svc.save_review_comment(chat, int(chat.data.get('rv') or 0), text)
+        c.set_state('', rv=None)
+        return c.say(c.t('review_thanks'), main_menu(c.lang))
+    if chat.state == 'name' and text:
+        parts = text.split()
+        if len(parts) < 2 or len(text) > 100:
+            return c.ask_more(c.t('bad_name'))
+        chat.first_name, chat.last_name = parts[0][:150], ' '.join(parts[1:])[:150]
+        chat.save(update_fields=['first_name', 'last_name'])
+        c.set_state(chat.state, got_name=True)
+        return ask_name_or_phone(c)
+    if chat.state == 'phone':
+        return ask_name_or_phone(c)
+    return c.say(c.t('unknown'), main_menu(c.lang))
+
+
+def on_callback(bot: BotConfig, cq: dict):
+    msg = cq.get('message') or {}
+    chat = _chat_for(bot, cq.get('from', {}), msg.get('chat', {}).get('id') or cq['from']['id'])
+    c = Ctx(bot, chat)
+    data = cq.get('data') or ''
+    try:
+        c.api.call('answerCallbackQuery', callback_query_id=cq['id'])
+    except TelegramError:
+        pass
+
+    def edit(text, markup=None):
+        try:
+            c.api.call('editMessageText', chat_id=chat.chat_id, message_id=msg.get('message_id'),
+                       text=text, parse_mode='HTML', reply_markup=markup)
+        except TelegramError:
+            c.say(text, markup)
+
+    if data == 'noop':
+        return
+    # A button that answers a booking question: that question message goes away with the next one
+    if data in ('book', 'ok', 'no') or data.startswith(('lang:', 'in:', 'out:', 'g:', 'rt:')):
+        c.track(msg.get('message_id'))
+
+    if data.startswith('lang:'):
+        chat.language = 'ru' if data == 'lang:ru' else 'uz'
+        chat.save(update_fields=['language'])
+        c.lang = chat.language
+        return go_menu(c)
+    if data == 'book':
+        c.set_state('dates')
+        return c.ask(*ask_checkin(c))
+    if data.startswith('cal:in:'):
+        return edit(*ask_checkin(c, data[7:]))  # month arrows: same question, new page
+    if data.startswith('cal:out:') and chat.data.get('ci'):
+        return edit(*ask_checkout(c, data[8:]))
+    if data.startswith('in:'):
+        c.set_state('dates', ci=data[3:], co=None)
+        return c.ask(*ask_checkout(c))
+    if data.startswith('out:') and chat.data.get('ci'):
+        ci, co = date.fromisoformat(chat.data['ci']), date.fromisoformat(data[4:])
+        if not (ci < co <= ci + timedelta(days=svc.MAX_NIGHTS)):
+            return c.ask_more(c.t('night_limit', n=svc.MAX_NIGHTS))
+        c.set_state('guests', co=co.isoformat())
+        max_occ = max([rt.max_occupancy for rt in RoomType.objects.filter(hotel_id=bot.hotel_id)] or [1])
+        return c.ask(c.t('pick_guests', check_in=svc.fmt_date(ci), check_out=svc.fmt_date(co), nights=(co - ci).days),
+                     guests_keyboard(c.lang, max_occ))
+    if data.startswith('g:') and chat.data.get('co'):
+        c.set_state('rooms', guests=int(data[2:]))
+        c.ask(c.t('searching'))
+        return show_rooms(c)
+    if data.startswith('ph:'):
+        rt = RoomType.objects.filter(pk=int(data[3:]), hotel_id=bot.hotel_id).first()
+        if rt:
+            for p in list(rt.photos.all())[1:10]:
+                c.track((_send_photo(c, p) or {}).get('message_id'))
+            c.ask_more(f'<b>{rt.name}</b>', {'inline_keyboard': [[{'text': c.t('choose_room'), 'callback_data': f'rt:{rt.id}'}]]})
+        return
+    if data.startswith('rt:') and chat.data.get('guests'):
+        if svc.open_request(chat):
+            return start_booking(c)
+        c.set_state('details', rt=int(data[3:]))
+        return ask_name_or_phone(c)
+    if data.startswith('rv:'):
+        _, booking_id, rating = data.split(':')
+        if svc.save_rating(chat, int(booking_id), int(rating)):
+            c.set_state('review', rv=int(booking_id))
+            return edit(c.t('review_comment', stars='⭐' * int(rating)),
+                        {'inline_keyboard': [[{'text': c.t('review_skip'), 'callback_data': 'rvs'}]]})
+        return edit(c.t('review_done'))
+    if data.startswith('rvp:'):
+        return edit(*reviews_page(c, max(0, int(data[4:]))))  # next/previous page in place
+    if data == 'rvl':
+        return leave_review(c)
+    if data == 'rvs':
+        c.set_state('', rv=None)
+        return edit(c.t('review_thanks'))
+    if data == 'ok' and chat.state == 'confirm':
+        d = chat.data
+        if svc.blocked(chat):
+            return start_booking(c)  # tells the guest booking is not possible
+        if svc.open_request(chat):
+            return start_booking(c)
+        booking = svc.create_request(chat, int(d['rt']), date.fromisoformat(d['ci']), date.fromisoformat(d['co']), int(d['guests']))
+        c.clear()
+        if not booking:
+            c.say(c.t('room_taken'))
+            return start_booking(c)
+        c.set_state('', ci=None, co=None, guests=None, rt=None)
+        return c.say(c.t('request_sent', reference=booking.reference))  # result: stays in the chat
+    if data == 'no':
+        c.clear()
+        c.set_state('')
+        return c.say(c.t('cancelled_flow'))
+    if data.startswith('pay:'):
+        b = chat.bookings.filter(pk=int(data[4:])).select_related('room__room_type', 'telegram_chat__bot__hotel').first()
+        if b and svc.payable(b, bot) and svc.payments_enabled(bot):
+            try:
+                svc.send_invoice(b)
+            except TelegramError as exc:
+                logger.warning('Invoice resend failed: %s', exc)
+        else:
+            c.say(c.t('precheckout_fail'))
+        return
+    if data.startswith(('cx:', 'cxy:', 'cxn:')):
+        kind, _, pk = data.partition(':')
+        b = chat.bookings.filter(pk=int(pk)).select_related('room__room_type').first()
+        if not b:
+            return
+        if is_open_request(b) and kind == 'cx':
+            # The manager has not answered yet: nothing to decide, withdraw right away
+            svc.withdraw_request(b)
+            return edit(c.t('request_cancelled', reference=b.reference))
+        if kind == 'cxn' or b.cancel_requested_at or b.status not in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
+            return edit(*booking_card(c, b))  # kept, already asked, or changed elsewhere: show it as it is now
+        if not guest_can_cancel(c, b):
+            return edit(c.t('cancel_too_late'))
+        if kind == 'cx':
+            return edit(
+                c.t('cancel_ask', reference=b.reference, check_in=svc.fmt_date(b.check_in), check_out=svc.fmt_date(b.check_out)),
+                {'inline_keyboard': [[
+                    {'text': c.t('cancel_yes'), 'callback_data': f'cxy:{b.id}'},
+                    {'text': c.t('cancel_no'), 'callback_data': f'cxn:{b.id}'},
+                ]]},
+            )
+        svc.request_cancel(b)  # kind == 'cxy': the manager decides in the panel
+        return edit(c.t('cancel_sent', reference=b.reference))
+
+
+def handle_update(bot: BotConfig, update: dict):
+    """Entry point for both the webhook and long polling. Never raises."""
+    try:
+        svc.expire_stale(bot.hotel_id)
+        if 'message' in update:
+            on_message(bot, update['message'])
+        elif 'callback_query' in update:
+            on_callback(bot, update['callback_query'])
+        elif 'pre_checkout_query' in update:
+            svc.handle_pre_checkout(bot, update['pre_checkout_query'])
+    except Exception:
+        logger.exception('Telegram update failed for bot %s: %s', bot.pk, update.get('update_id'))

@@ -16,3 +16,10 @@ class HotelMembershipSerializer(serializers.ModelSerializer):
 class InviteMemberSerializer(serializers.Serializer):
     email = serializers.EmailField()
     role = serializers.ChoiceField(choices=HotelRole.choices)
+    # Only used when no account exists for this email yet: the account is created on the spot
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, trim_whitespace=False)
+
+    def validate_email(self, value):
+        return value.strip().lower()

@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconPlus, IconSearch } from "@tabler/icons-react";
+import { IconPlus, IconSearch, IconStarFilled } from "@tabler/icons-react";
 import { apiClient } from "@/lib/api/client";
 import { apiError, asList } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
+import { GuestHistoryModal } from "@/components/guests/GuestHistoryModal";
 import type { Guest, PaginatedResponse } from "@/types";
+
+type GuestFilter = "all" | "regular" | "blacklist";
+type Sort = "name" | "stays" | "paid" | "last";
 
 const emptyGuest = {
   first_name: "",
@@ -25,11 +29,16 @@ export default function GuestsPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(emptyGuest);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<GuestFilter>("all");
+  const [sort, setSort] = useState<Sort>("name");
+  const [openId, setOpenId] = useState<number | null>(null);
 
   const { data: guests = [], isLoading } = useQuery({
     queryKey: ["guests", hotelId],
     queryFn: async () =>
-      asList((await apiClient.get<PaginatedResponse<Guest>>(`/guests/hotels/${hotelId}/guests/`)).data),
+      asList(
+        (await apiClient.get<PaginatedResponse<Guest>>(`/guests/hotels/${hotelId}/guests/`, { params: { page_size: 500 } })).data
+      ),
   });
 
   const create = useMutation({
@@ -48,11 +57,31 @@ export default function GuestsPage() {
   });
 
   const q = search.trim().toLowerCase();
-  const filtered = q
-    ? guests.filter((g) =>
-        [g.full_name, g.email, g.phone, g.id_number].some((v) => (v || "").toLowerCase().includes(q))
-      )
-    : guests;
+  const regularCount = guests.filter((g) => (g.stays || 0) >= 2).length;
+  const blacklistCount = guests.filter((g) => g.is_blacklisted).length;
+  const filtered = guests
+    .filter((g) => (filter === "regular" ? (g.stays || 0) >= 2 : filter === "blacklist" ? g.is_blacklisted : true))
+    .filter((g) => !q || [g.full_name, g.email, g.phone, g.id_number].some((v) => (v || "").toLowerCase().includes(q)))
+    .sort((a, b) =>
+      sort === "stays"
+        ? (b.stays || 0) - (a.stays || 0)
+        : sort === "paid"
+        ? Number(b.total_paid || 0) - Number(a.total_paid || 0)
+        : sort === "last"
+        ? (b.last_visit || "").localeCompare(a.last_visit || "")
+        : a.full_name.localeCompare(b.full_name)
+    );
+
+  const filterBtn = (key: GuestFilter, label: string) => (
+    <button
+      onClick={() => setFilter(key)}
+      className={`px-3 py-1 rounded border transition ${
+        filter === key ? "bg-stone-900 text-white border-stone-900 font-semibold" : "bg-white text-stone-700 border-stone-300 hover:bg-stone-100"
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   const input = (key: keyof typeof emptyGuest, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <div>
@@ -81,6 +110,25 @@ export default function GuestsPage() {
         </button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {filterBtn("all", `Barchasi (${guests.length})`)}
+        {filterBtn("regular", `Doimiy mijozlar (${regularCount})`)}
+        {filterBtn("blacklist", `Qora ro'yxat (${blacklistCount})`)}
+        <label className="ml-auto flex items-center gap-1.5 text-stone-500 font-semibold">
+          Saralash:
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as Sort)}
+            className="px-2 py-1 border border-stone-300 rounded bg-white text-stone-800 font-normal"
+          >
+            <option value="name">Ism bo'yicha</option>
+            <option value="stays">Ko'p kelganlar</option>
+            <option value="paid">Ko'p to'laganlar</option>
+            <option value="last">Oxirgi kelganlar</option>
+          </select>
+        </label>
+      </div>
+
       <div className="relative max-w-md">
         <IconSearch className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
         <input
@@ -98,25 +146,31 @@ export default function GuestsPage() {
             <tr>
               <th className="py-3 px-4">№</th>
               <th className="py-3 px-4">Mehmon</th>
-              <th className="py-3 px-4">Email</th>
               <th className="py-3 px-4">Tel</th>
-              <th className="py-3 px-4">Fuqarolik</th>
-              <th className="py-3 px-4">Pasport</th>
+              <th className="py-3 px-4 text-center">Tashrif</th>
+              <th className="py-3 px-4 text-right">To'lagan</th>
+              <th className="py-3 px-4">Oxirgi kelish</th>
+              <th className="py-3 px-4 text-center">Baho</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-200 font-medium">
             {isLoading && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-stone-400">Yuklanmoqda...</td>
+                <td colSpan={7} className="py-8 text-center text-stone-400">Yuklanmoqda...</td>
               </tr>
             )}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-10 text-center text-stone-400">Mehmon yo&apos;q</td>
+                <td colSpan={7} className="py-10 text-center text-stone-400">Mehmon yo&apos;q</td>
               </tr>
             )}
             {filtered.map((g, idx) => (
-              <tr key={g.id} className="hover:bg-stone-50 transition">
+              <tr
+                key={g.id}
+                onClick={() => setOpenId(g.id)}
+                title="Tarixni ko'rish"
+                className={`cursor-pointer transition ${g.is_blacklisted ? "bg-stone-100 hover:bg-stone-200" : "hover:bg-stone-50"}`}
+              >
                 <td className="py-3 px-4 text-stone-400 font-mono">{idx + 1}</td>
                 <td className="py-3 px-4 font-bold text-stone-900">
                   <div className="flex items-center gap-1.5">
@@ -126,17 +180,44 @@ export default function GuestsPage() {
                         VIP
                       </span>
                     )}
+                    {g.is_blacklisted && (
+                      <span
+                        className="px-1.5 py-0.5 text-[9px] font-bold uppercase bg-stone-900 text-white rounded"
+                        title={g.blacklist_reason || "Qora ro'yxatda"}
+                      >
+                        Qora ro&apos;yxat
+                      </span>
+                    )}
+                    {(g.stays || 0) >= 2 && (
+                      <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-300 rounded">
+                        Doimiy
+                      </span>
+                    )}
                   </div>
                 </td>
-                <td className="py-3 px-4 font-mono text-stone-700">{g.email || "—"}</td>
                 <td className="py-3 px-4 font-mono text-stone-600">{g.phone || "—"}</td>
-                <td className="py-3 px-4 text-stone-600">{g.nationality || "—"}</td>
-                <td className="py-3 px-4 font-mono text-stone-600">{g.id_number || "—"}</td>
+                <td className="py-3 px-4 text-center font-mono">
+                  <span className="font-bold text-stone-900">{g.stays || 0}</span>
+                  {(g.cancellations || 0) > 0 && <span className="text-rose-600" title="Bekor qilingan / kelmagan"> · {g.cancellations}✕</span>}
+                </td>
+                <td className="py-3 px-4 text-right font-mono font-bold text-stone-900">{Number(g.total_paid || 0).toLocaleString()}</td>
+                <td className="py-3 px-4 font-mono text-stone-600">{g.last_visit || "—"}</td>
+                <td className="py-3 px-4 text-center">
+                  {g.avg_rating ? (
+                    <span className="inline-flex items-center gap-0.5 font-bold text-amber-600">
+                      <IconStarFilled className="w-3 h-3" /> {g.avg_rating.toFixed(1)}
+                    </span>
+                  ) : (
+                    <span className="text-stone-400">—</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {openId !== null && <GuestHistoryModal guestId={openId} onClose={() => setOpenId(null)} />}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { IconLogout, IconBriefcase, IconCrown } from "@tabler/icons-react";
+import { IconLogout, IconBriefcase, IconCrown, IconUser } from "@tabler/icons-react";
 import { apiClient } from "@/lib/api/client";
-import { clearSession, getSession, ROLE_LABEL, Session } from "@/lib/session";
+import { clearSession, getSession, ROLE_BASE, ROLE_LABEL, Session, STAFF_ROLE_LABEL } from "@/lib/session";
 
 export function DashboardNav({ user }: { user?: any }) {
   const router = useRouter();
@@ -32,12 +32,17 @@ export function DashboardNav({ user }: { user?: any }) {
     }
   };
 
-  const isManager = session?.role === "manager";
-  const RoleIcon = isManager ? IconBriefcase : IconCrown;
+  const role = session?.role;
+  const RoleIcon = role === "manager" ? IconBriefcase : role === "staff" ? IconUser : IconCrown;
+  const roleLabel = !session
+    ? ""
+    : session.role === "staff"
+      ? STAFF_ROLE_LABEL[session.hotelRole || ""] || ROLE_LABEL.staff
+      : ROLE_LABEL[session.role];
 
   return (
     <header className="h-16 border-b border-stone-200 bg-white px-6 flex items-center justify-between sticky top-0 z-40">
-      <Link href="/dashboard" className="flex items-center gap-2.5">
+      <Link href={role === "staff" ? ROLE_BASE.staff : "/dashboard"} className="flex items-center gap-2.5">
         <img src="/logo.png" alt="StarHotel" className="w-8 h-8 object-contain rounded" />
         <span className="font-serif tracking-widest text-lg font-bold text-stone-900 uppercase">
           StarHotel
@@ -48,13 +53,15 @@ export function DashboardNav({ user }: { user?: any }) {
         <div className="flex items-center gap-3">
           <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded border text-xs font-semibold ${
-              isManager
+              role === "manager"
                 ? "bg-emerald-100 text-emerald-950 border-emerald-300"
-                : "bg-amber-100 text-amber-950 border-amber-300"
+                : role === "staff"
+                  ? "bg-sky-100 text-sky-950 border-sky-300"
+                  : "bg-amber-100 text-amber-950 border-amber-300"
             }`}
           >
             <RoleIcon className="w-3.5 h-3.5" />
-            {ROLE_LABEL[session.role]}
+            {roleLabel}
           </span>
 
           <div className="flex items-center gap-3 pl-3 border-l border-stone-200">

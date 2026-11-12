@@ -25,6 +25,11 @@ STATUS_TRANSITIONS = {
 }
 
 
+class BookingSource(models.TextChoices):
+    PANEL = 'panel', 'Panel'
+    TELEGRAM = 'telegram', 'Telegram bot'
+
+
 class Booking(TimestampedModel):
     """
     Hotel reservation.
@@ -55,6 +60,17 @@ class Booking(TimestampedModel):
 
     special_requests = models.TextField(blank=True)
     cancellation_reason = models.TextField(blank=True)
+
+    # Where the booking came from. Telegram requests wait in PENDING until a manager
+    # approves them; the guest then has until payment_due_at to pay, or the request lapses.
+    source = models.CharField(max_length=20, choices=BookingSource.choices, default=BookingSource.PANEL, db_index=True)
+    telegram_chat = models.ForeignKey(
+        'telegram_bot.TelegramChat', on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    payment_due_at = models.DateTimeField(null=True, blank=True)
+    # The guest asked (in Telegram) to cancel; a manager decides. Cleared when decided.
+    cancel_requested_at = models.DateTimeField(null=True, blank=True)
 
     actual_check_in = models.DateTimeField(null=True, blank=True)
     actual_check_out = models.DateTimeField(null=True, blank=True)
@@ -102,3 +118,19 @@ class BookingAuditLog(TimestampedModel):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class BookingReview(TimestampedModel):
+    """The guest's 1-5 rating (and optional comment) after the stay, collected by the Telegram bot."""
+    booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='review')
+    hotel = models.ForeignKey('hotels.Hotel', on_delete=models.CASCADE, related_name='reviews')
+    guest = models.ForeignKey('guests.Guest', on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveSmallIntegerField()
+    comment = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['hotel', 'created_at'], name='review_hotel_created_idx')]
+
+    def __str__(self) -> str:
+        return f'{self.booking_id}: {self.rating}'

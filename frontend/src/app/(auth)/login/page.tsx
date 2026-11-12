@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api/client";
-import { clearSession, setSession, PanelRole, ROLE_BASE } from "@/lib/session";
+import { clearSession, setSession, PanelRole, ROLE_BASE, STAFF_PAGES } from "@/lib/session";
 
 interface MeResponse {
   email: string;
@@ -32,7 +32,11 @@ export default function LoginPage() {
     try {
       await apiClient.post("/auth/login/", { email: email.trim().toLowerCase(), password });
     } catch (err: any) {
-      return fail(err?.response ? "Email yoki parol noto'g'ri." : "Server bilan aloqa yo'q.");
+      const status = err?.response?.status;
+      if (!status) return fail("Server bilan aloqa yo'q.");
+      if (status === 429) return fail("Juda ko'p urinish. Bir daqiqadan keyin qayta urinib ko'ring.");
+      if (status >= 500) return fail("Serverda xatolik. Keyinroq urinib ko'ring.");
+      return fail("Email yoki parol noto'g'ri.");
     }
 
     // Rol backend'dagi a'zolikdan olinadi
@@ -44,21 +48,24 @@ export default function LoginPage() {
     }
 
     const memberships = me.memberships || [];
+    // Owner first, then manager, then any staff role (receptionist, housekeeping, …)
     const pick =
       memberships.find((m) => m.role === "owner") ||
-      memberships.find((m) => m.role === "manager");
+      memberships.find((m) => m.role === "manager") ||
+      memberships.find((m) => m.role in STAFF_PAGES);
 
     if (!pick) {
       await apiClient.post("/auth/logout/").catch(() => {});
       return fail("Bu akkaunt hali mehmonxonaga biriktirilmagan. Boshliq sizni taklif qilishi kerak.");
     }
 
-    const role = pick.role as PanelRole;
+    const role: PanelRole = pick.role === "owner" || pick.role === "manager" ? pick.role : "staff";
     setSession({
       email: me.email,
       name: me.full_name || me.email,
       role,
       hotelId: pick.hotel_id,
+      hotelRole: pick.role,
     });
     router.push(ROLE_BASE[role]);
   };

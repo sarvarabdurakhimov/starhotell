@@ -21,6 +21,7 @@ import {
   IconClock,
   IconCurrencyDollar,
   IconDownload,
+  IconEye,
   IconFilter,
   IconLogout,
   IconRefresh,
@@ -65,6 +66,8 @@ export default function HotelDashboardPage() {
     refetch: refetchExec
   } = useQuery<ExecutiveReportData | null>({
     queryKey: ["executive-report", hotelId, dateFilter, customStart, customEnd],
+    // Owner-only report; managers get their own dashboard below
+    enabled: role !== "manager",
     queryFn: async () => {
       try {
         const paramsObj: any = { filter: dateFilter };
@@ -277,8 +280,13 @@ export default function HotelDashboardPage() {
             </div>
             <div className="mt-2 text-[11px] text-stone-500 flex items-center justify-between">
               <span>Qaytarish: {Number(kpis.refunds).toLocaleString()} {currency}</span>
-              <Link href={`${base}/payments`} className="text-amber-800 font-semibold hover:underline">
-                Batafsil &rarr;
+              <Link
+                href={`${base}/payments`}
+                title="Batafsil"
+                aria-label="Batafsil"
+                className="p-1 rounded text-amber-800 hover:text-amber-950 hover:bg-amber-50 transition"
+              >
+                <IconEye className="w-4 h-4" />
               </Link>
             </div>
           </div>
@@ -336,8 +344,12 @@ export default function HotelDashboardPage() {
           <div className="bg-white p-4 rounded border border-stone-200 shadow-sm">
             <span className="text-[11px] text-stone-500 font-bold uppercase block">Kelish / Ketish</span>
             <div className="text-base font-bold text-stone-900 mt-2 flex items-center justify-between">
-              <span className="text-emerald-800">↓ {kpis.today_arrivals}</span>
-              <span className="text-amber-800">↑ {kpis.today_departures}</span>
+              <span className="text-emerald-800 inline-flex items-center gap-1" title="Kelish">
+                <IconArrowDownRight className="w-4 h-4" /> {kpis.today_arrivals}
+              </span>
+              <span className="text-amber-800 inline-flex items-center gap-1" title="Ketish">
+                <IconArrowUpRight className="w-4 h-4" /> {kpis.today_departures}
+              </span>
             </div>
           </div>
 

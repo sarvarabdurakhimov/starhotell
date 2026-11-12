@@ -47,3 +47,23 @@ class Room(TimestampedModel):
 
     def __str__(self) -> str:
         return f'Room {self.room_number} ({self.hotel.name})'
+
+
+class RoomTypePhoto(TimestampedModel):
+    """
+    A photo of a room type, shown in the panel and sent to guests by the Telegram bot.
+    Stored in the database (resized JPEG) so it survives redeploys on hosts without a persistent disk.
+    """
+    room_type = models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name='photos')
+    image = models.BinaryField()
+    width = models.PositiveIntegerField(default=0)
+    height = models.PositiveIntegerField(default=0)
+    position = models.PositiveSmallIntegerField(default=0)
+    # Telegram file_id per bot username, so a photo is uploaded to Telegram only once
+    telegram_file_ids = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['position', 'id']
+
+    def __str__(self) -> str:
+        return f'Photo {self.pk} of {self.room_type}'

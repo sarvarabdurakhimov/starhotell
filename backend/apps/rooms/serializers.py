@@ -3,10 +3,15 @@ from .models import Room, RoomType, RoomStatus
 
 
 class RoomTypeSerializer(serializers.ModelSerializer):
+    photos = serializers.SerializerMethodField()
+
     class Meta:
         model = RoomType
-        fields = ('id', 'name', 'description', 'max_occupancy', 'base_price', 'amenities', 'created_at')
+        fields = ('id', 'name', 'description', 'max_occupancy', 'base_price', 'amenities', 'photos', 'created_at')
         read_only_fields = ('id', 'created_at')
+
+    def get_photos(self, obj):
+        return [{'id': pid, 'url': f'/api/v1/rooms/photos/{pid}.jpg'} for pid in obj.photos.values_list('id', flat=True)]
 
 
 class RoomSerializer(serializers.ModelSerializer):

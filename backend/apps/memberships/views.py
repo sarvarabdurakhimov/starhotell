@@ -1,5 +1,9 @@
 """Membership management API views."""
 import logging
+
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,6 +14,27 @@ from .models import HotelMembership
 from .serializers import HotelMembershipSerializer, InviteMemberSerializer
 
 logger = logging.getLogger(__name__)
+
+# Django's password validator messages, in the panel's language
+PASSWORD_ERRORS_UZ = {
+    'password_too_short': "Parol kamida 8 ta belgidan iborat bo'lishi kerak.",
+    'password_too_common': "Bu parol juda oddiy, boshqasini tanlang.",
+    'password_entirely_numeric': "Parol faqat raqamlardan iborat bo'lmasligi kerak.",
+    'password_too_similar': "Parol email yoki ismga juda o'xshash.",
+}
+
+
+def _password_errors(password, user):
+    """Uzbek error list for a staff password, or [] when it is acceptable."""
+    if not password:
+        return ['Parol kiritilishi shart.']
+    if password != password.strip():
+        return ["Parol boshida yoki oxirida bo'sh joy bo'lmasin."]
+    try:
+        validate_password(password, user=user)
+    except DjangoValidationError as exc:
+        return [PASSWORD_ERRORS_UZ.get(e.code, m) for e, m in zip(exc.error_list, exc.messages)]
+    return []
 
 
 class HotelMemberListView(generics.ListAPIView):
@@ -56,13 +81,37 @@ class InviteMemberView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response(
-                {'detail': 'No user with that email address exists.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        # Existing account: just attach it (its password is never changed from here).
+        # New email: create the account with the name and password the owner typed.
+        user = User.objects.filter(email__iexact=email).first()
+        account_created = False
+        if user is None:
+            data = serializer.validated_data
+            password = data.get('password') or ''
+            first_name = (data.get('first_name') or '').strip()
+            errors = {}
+            if not first_name:
+                errors['first_name'] = ['Ism kiritilishi shart.']
+            if not password:
+                errors['password'] = ['Yangi xodim uchun parol kiritilishi shart.']
+            elif password != password.strip():
+                errors['password'] = ["Parol boshida yoki oxirida bo'sh joy bo'lmasin."]
+            else:
+                try:
+                    validate_password(password, user=User(email=email, first_name=first_name))
+                except DjangoValidationError as exc:
+                    errors['password'] = [PASSWORD_ERRORS_UZ.get(e.code, m) for e, m in zip(exc.error_list, exc.messages)]
+            if errors:
+                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    email=email,
+                    password=password,
+                    first_name=first_name,
+                    last_name=(data.get('last_name') or '').strip(),
+                    is_email_verified=True,
+                )
+            account_created = True
 
         membership, created = HotelMembership.objects.get_or_create(
             hotel_id=hotel_id,
@@ -80,8 +129,12 @@ class InviteMemberView(APIView):
             membership.invited_by = request.user
             membership.save(update_fields=['is_active', 'role', 'invited_by'])
 
-        logger.info('User %s invited %s to hotel %s with role %s', request.user.email, email, hotel_id, role)
-        return Response(HotelMembershipSerializer(membership).data, status=status.HTTP_201_CREATED)
+        logger.info('User %s invited %s to hotel %s with role %s (new account: %s)',
+                    request.user.email, email, hotel_id, role, account_created)
+        return Response(
+            {**HotelMembershipSerializer(membership).data, 'account_created': account_created},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class UpdateMemberRoleView(APIView):
@@ -173,3 +226,48 @@ class RevokeMembershipView(APIView):
         membership.save(update_fields=['is_active'])
         logger.info('Membership %s revoked by %s', membership_id, request.user.email)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SetMemberPasswordView(APIView):
+    """
+    POST /api/v1/memberships/hotels/{hotel_id}/members/{membership_id}/password/
+    The owner (or a manager, for non-manager staff) sets a new login password for a staff member,
+    e.g. when they forgot it. Only for accounts that belong to this hotel alone.
+    """
+    permission_classes = [IsHotelManager]
+
+    def post(self, request, hotel_id, membership_id):
+        try:
+            membership = HotelMembership.objects.select_related('user').get(
+                id=membership_id, hotel_id=hotel_id, is_active=True
+            )
+        except HotelMembership.DoesNotExist:
+            return Response({'detail': 'Xodim topilmadi.'}, status=status.HTTP_404_NOT_FOUND)
+
+        user = membership.user
+        is_owner = HotelMembership.objects.filter(
+            hotel_id=hotel_id, user=request.user, role='owner', is_active=True
+        ).exists()
+
+        if user == request.user:
+            return Response({'detail': "O'z parolingizni profil orqali o'zgartiring."}, status=status.HTTP_400_BAD_REQUEST)
+        if membership.role == 'owner' or user.is_superuser or user.is_staff:
+            return Response({'detail': "Bu akkauntning parolini o'zgartirib bo'lmaydi."}, status=status.HTTP_403_FORBIDDEN)
+        if membership.role == 'manager' and not is_owner:
+            return Response({'detail': "Menejer parolini faqat boshliq o'zgartira oladi."}, status=status.HTTP_403_FORBIDDEN)
+        # An account that also works at another hotel is not ours to reset.
+        if HotelMembership.objects.filter(user=user, is_active=True).exclude(hotel_id=hotel_id).exists():
+            return Response(
+                {'detail': "Bu xodim boshqa mehmonxonada ham ishlaydi, parolini faqat o'zi o'zgartira oladi."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        password = request.data.get('password') or ''
+        errors = _password_errors(password, user)
+        if errors:
+            return Response({'password': errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(password)
+        user.save(update_fields=['password'])
+        logger.info('Password for %s reset by %s (hotel %s)', user.email, request.user.email, hotel_id)
+        return Response({'detail': "Parol o'zgartirildi."})

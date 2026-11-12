@@ -1,11 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconAlertTriangle, IconCalendarCheck, IconCircleCheck, IconPlus, IconSparkles } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconArrowRight,
+  IconCalendarCheck,
+  IconChevronRight,
+  IconCircleCheck,
+  IconPlus,
+  IconSparkles,
+  IconX,
+} from "@tabler/icons-react";
 import { apiClient } from "@/lib/api/client";
 import { apiError, asList, ROOM_STATUS } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
+import { RoomTypesSection } from "@/components/rooms/RoomTypesSection";
 import type { Booking, PaginatedResponse, Room, RoomStatus, RoomType } from "@/types";
 
 type Filter = "all" | RoomStatus;
@@ -19,25 +30,28 @@ const BADGE: Record<string, string> = {
 };
 
 export default function RoomsPage() {
-  const { hotelId } = usePanel();
+  const { hotelId, base, role, staffRole } = usePanel();
+  // Staff can view rooms; changing rooms needs a manager (backend rule). Reception still does check-out.
+  const canManage = role !== "staff";
+  const canCheckOut = canManage || staffRole === "receptionist";
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState<string | null>(null);
   const [roomModal, setRoomModal] = useState(false);
   const [typeModal, setTypeModal] = useState(false);
   const [roomForm, setRoomForm] = useState({ room_number: "", floor: "1", room_type: "" });
-  const [typeForm, setTypeForm] = useState({ name: "", base_price: "", max_occupancy: "2" });
+  const [typeForm, setTypeForm] = useState({ name: "", base_price: "", max_occupancy: "2", description: "" });
 
   const { data: rooms = [], isLoading } = useQuery({
     queryKey: ["rooms", hotelId],
     queryFn: async () =>
-      asList((await apiClient.get<PaginatedResponse<Room>>(`/rooms/hotels/${hotelId}/rooms/`)).data),
+      asList((await apiClient.get<PaginatedResponse<Room>>(`/rooms/hotels/${hotelId}/rooms/`, { params: { page_size: 100 } })).data),
   });
 
   const { data: roomTypes = [] } = useQuery({
     queryKey: ["room-types", hotelId],
     queryFn: async () =>
-      asList((await apiClient.get<PaginatedResponse<RoomType>>(`/rooms/hotels/${hotelId}/room-types/`)).data),
+      asList((await apiClient.get<PaginatedResponse<RoomType>>(`/rooms/hotels/${hotelId}/room-types/`, { params: { page_size: 100 } })).data),
   });
 
   // Who is staying in each room right now
@@ -103,10 +117,11 @@ export default function RoomsPage() {
         name: typeForm.name.trim(),
         base_price: typeForm.base_price,
         max_occupancy: Number(typeForm.max_occupancy),
+        description: typeForm.description.trim(),
       }),
     onSuccess: (res) => {
       setTypeModal(false);
-      setTypeForm({ name: "", base_price: "", max_occupancy: "2" });
+      setTypeForm({ name: "", base_price: "", max_occupancy: "2", description: "" });
       setRoomForm((f) => ({ ...f, room_type: String(res.data.id) }));
       setError(null);
       refresh();
@@ -137,7 +152,7 @@ export default function RoomsPage() {
     <div className="space-y-6 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
         <h1 className="text-2xl font-serif font-bold text-stone-900">Xonalar</h1>
-        <div className="flex items-center gap-2">
+        {canManage && <div className="flex items-center gap-2">
           <button
             onClick={() => {
               setError(null);
@@ -156,13 +171,15 @@ export default function RoomsPage() {
           >
             <IconPlus className="w-4 h-4 text-amber-400" /> Yangi xona
           </button>
-        </div>
+        </div>}
       </div>
 
       {error && !roomModal && !typeModal && (
         <div className="p-3 rounded bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-stone-400 hover:text-stone-700">✕</button>
+          <button onClick={() => setError(null)} title="Yopish" aria-label="Yopish" className="text-stone-400 hover:text-stone-700">
+            <IconX className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -186,18 +203,23 @@ export default function RoomsPage() {
           return (
             <div
               key={room.id}
-              className="bg-white border border-stone-200 rounded p-5 shadow-sm flex flex-col justify-between"
+              className="group bg-white border border-stone-200 hover:border-stone-400 hover:shadow-md rounded p-5 shadow-sm flex flex-col justify-between transition"
             >
-              <div>
+              <Link href={`${base}/rooms/${room.id}`} className="block" title="Xona tafsilotlari">
                 <div className="flex items-start justify-between">
                   <div>
                     <span className="text-[11px] font-mono text-stone-500 uppercase">{room.floor}-qavat</span>
-                    <h3 className="text-2xl font-serif font-extrabold text-stone-900">Xona {room.room_number}</h3>
+                    <h3 className="text-2xl font-serif font-extrabold text-stone-900 group-hover:underline underline-offset-4">
+                      Xona {room.room_number}
+                    </h3>
                     <p className="text-xs text-stone-600">{room.room_type_detail?.name || "—"}</p>
                   </div>
-                  <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold border ${BADGE[room.status] || BADGE.maintenance}`}>
-                    {ROOM_STATUS[room.status] || room.status}
-                  </span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold border ${BADGE[room.status] || BADGE.maintenance}`}>
+                      {ROOM_STATUS[room.status] || room.status}
+                    </span>
+                    <IconChevronRight className="w-4 h-4 text-stone-400 group-hover:text-stone-900 transition" />
+                  </div>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-stone-100 text-xs space-y-1.5">
@@ -222,19 +244,19 @@ export default function RoomsPage() {
                     </>
                   )}
                 </div>
-              </div>
+              </Link>
 
               <div className="mt-4 pt-3 border-t border-stone-100 flex items-center gap-2">
-                {stay && (
+                {stay && canCheckOut && (
                   <button
                     disabled={busy}
                     onClick={() => checkOut.mutate(stay.id)}
-                    className="w-full py-1.5 text-xs font-semibold bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 rounded transition disabled:opacity-50"
+                    className="w-full py-1.5 flex items-center justify-center gap-1.5 text-xs font-semibold bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 rounded transition disabled:opacity-50"
                   >
-                    Check-out &rarr; Tozalash
+                    Check-out <IconArrowRight className="w-3.5 h-3.5" /> Tozalash
                   </button>
                 )}
-                {!stay && room.status === "cleaning" && (
+                {canManage && !stay && room.status === "cleaning" && (
                   <button
                     disabled={busy}
                     onClick={() => setStatus.mutate({ id: room.id, status: "available" })}
@@ -243,7 +265,7 @@ export default function RoomsPage() {
                     Tayyor
                   </button>
                 )}
-                {!stay && room.status === "available" && (
+                {canManage && !stay && room.status === "available" && (
                   <button
                     disabled={busy}
                     onClick={() => setStatus.mutate({ id: room.id, status: "maintenance" })}
@@ -252,13 +274,13 @@ export default function RoomsPage() {
                     Ta&apos;mirga
                   </button>
                 )}
-                {!stay && (room.status === "maintenance" || room.status === "out_of_order") && (
+                {canManage && !stay && (room.status === "maintenance" || room.status === "out_of_order") && (
                   <button
                     disabled={busy}
                     onClick={() => setStatus.mutate({ id: room.id, status: "cleaning" })}
-                    className="w-full py-1.5 text-xs font-semibold bg-stone-800 hover:bg-stone-900 text-white rounded transition disabled:opacity-50"
+                    className="w-full py-1.5 flex items-center justify-center gap-1.5 text-xs font-semibold bg-stone-800 hover:bg-stone-900 text-white rounded transition disabled:opacity-50"
                   >
-                    Tugadi &rarr; Tozalash
+                    Tugadi <IconArrowRight className="w-3.5 h-3.5" /> Tozalash
                   </button>
                 )}
               </div>
@@ -266,6 +288,8 @@ export default function RoomsPage() {
           );
         })}
       </div>
+
+      <RoomTypesSection roomTypes={roomTypes} canManage={canManage} />
 
       {roomModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -322,9 +346,9 @@ export default function RoomsPage() {
                       setRoomModal(false);
                       setTypeModal(true);
                     }}
-                    className="mt-1 text-[11px] text-amber-800 font-semibold hover:underline"
+                    className="mt-1 text-[11px] text-amber-800 font-semibold hover:underline inline-flex items-center gap-1"
                   >
-                    Avval xona turini qo&apos;shing &rarr;
+                    Avval xona turini qo&apos;shing <IconArrowRight className="w-3 h-3" />
                   </button>
                 )}
               </div>
@@ -392,6 +416,18 @@ export default function RoomsPage() {
                   />
                 </div>
               </div>
+              <div>
+                <label className="block font-bold text-stone-700 uppercase mb-1">Tavsif</label>
+                <textarea
+                  rows={2}
+                  maxLength={600}
+                  value={typeForm.description}
+                  onChange={(e) => setTypeForm({ ...typeForm, description: e.target.value })}
+                  placeholder="Telegram botda mijozga ko'rsatiladi"
+                  className="w-full px-3 py-2 border border-stone-300 rounded focus:border-stone-900 outline-none"
+                />
+              </div>
+              <p className="text-[11px] text-stone-500">Rasmlarni saqlagandan keyin pastdagi &quot;Xona turlari&quot; bo&apos;limidan qo&apos;shasiz.</p>
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-stone-200">
                 <button type="button" onClick={() => setTypeModal(false)} className="px-3 py-1.5 text-stone-600 hover:bg-stone-100 rounded font-semibold">
                   Bekor

@@ -133,6 +133,7 @@ export interface RoomType {
   max_occupancy: number;
   base_price: string;
   amenities: string[];
+  photos?: { id: number; url: string }[];
   created_at: string;
 }
 
@@ -163,7 +164,17 @@ export interface Guest {
   nationality: string;
   date_of_birth?: string;
   is_vip: boolean;
+  is_blacklisted?: boolean;
+  blacklist_reason?: string;
+  blacklisted_at?: string | null;
   created_at: string;
+  // Visit history (from the API)
+  stays?: number;
+  bookings_count?: number;
+  cancellations?: number;
+  total_paid?: string;
+  last_visit?: string | null;
+  avg_rating?: number | null;
 }
 
 export type BookingStatus = 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show';
@@ -188,6 +199,15 @@ export interface Booking {
   cancellation_reason?: string;
   actual_check_in?: string;
   actual_check_out?: string;
+  source?: "panel" | "telegram";
+  approved_at?: string | null;
+  payment_due_at?: string | null;
+  guest_phone?: string;
+  paid_amount?: string;
+  cancel_requested_at?: string | null;
+  guest_blacklisted?: boolean;
+  refunded_amount?: string;
+  review_rating?: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -2,6 +2,8 @@
 import csv
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+
+from apps.payments.refunds import PAID_STATUSES
 from django.db.models import Sum, Count, Q
 from django.http import HttpResponse
 from rest_framework import status
@@ -104,14 +106,14 @@ class OwnerExecutiveDashboardView(APIView):
         # A. Today's settled cash revenue
         today_settled_revenue = Payment.objects.filter(
             hotel_id=hotel_id,
-            status=PaymentStatus.SUCCEEDED,
+            status__in=PAID_STATUSES,
             created_at__date=today
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         # B. Selected period settled cash revenue
         period_settled_payments = Payment.objects.filter(
             hotel_id=hotel_id,
-            status=PaymentStatus.SUCCEEDED,
+            status__in=PAID_STATUSES,
             created_at__date__gte=start_date,
             created_at__date__lte=end_date
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
@@ -203,7 +205,7 @@ class OwnerExecutiveDashboardView(APIView):
             day_str = curr.isoformat()
             day_rev = Payment.objects.filter(
                 hotel_id=hotel_id,
-                status=PaymentStatus.SUCCEEDED,
+                status__in=PAID_STATUSES,
                 created_at__date=curr
             ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
 

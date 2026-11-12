@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { IconCircleCheck } from "@tabler/icons-react";
+import {
+  IconArrowRight,
+  IconCheck,
+  IconCircleCheck,
+} from "@tabler/icons-react";
 
 export default function HomePage() {
   const [activeStep, setActiveStep] = useState(0);
@@ -77,9 +81,9 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <Link
               href="/hotels/1"
-              className="px-4 py-2 text-xs font-bold text-stone-900 bg-amber-400 hover:bg-amber-300 rounded shadow transition"
+              className="px-4 py-2 inline-flex items-center gap-1.5 text-xs font-bold text-stone-900 bg-amber-400 hover:bg-amber-300 rounded shadow transition"
             >
-              Tizimni ko&apos;rish →
+              Tizimni ko&apos;rish <IconArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
@@ -102,9 +106,9 @@ export default function HomePage() {
             <div className="flex flex-wrap gap-3 pt-2">
               <Link
                 href="/hotels/1"
-                className="px-6 py-3 text-xs uppercase tracking-wider font-bold bg-amber-400 hover:bg-amber-300 text-stone-950 rounded transition shadow"
+                className="px-6 py-3 inline-flex items-center gap-1.5 text-xs uppercase tracking-wider font-bold bg-amber-400 hover:bg-amber-300 text-stone-950 rounded transition shadow"
               >
-                Tizimni ochish →
+                Tizimni ochish <IconArrowRight className="w-3.5 h-3.5" />
               </Link>
               <Link
                 href="/login"
@@ -286,16 +290,16 @@ export default function HomePage() {
                 490,000 <span className="text-xs font-sans font-normal text-stone-500">so‘m / oy</span>
               </div>
               <ul className="text-xs text-stone-600 space-y-2 pt-3 mt-3 border-t border-stone-200">
-                <li>✓ 20 tagacha xona</li>
-                <li>✓ Boshliq va Meneger paneli</li>
-                <li>✓ Xonalar va tozalash nazorati</li>
+                <li className="flex items-center gap-2"><IconCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" /> 20 tagacha xona</li>
+                <li className="flex items-center gap-2"><IconCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" /> Boshliq va Meneger paneli</li>
+                <li className="flex items-center gap-2"><IconCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" /> Xonalar va tozalash nazorati</li>
               </ul>
             </div>
             <Link
               href="/hotels/1"
-              className="block text-center py-2 text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-900 rounded border border-stone-300 transition"
+              className="flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-900 rounded border border-stone-300 transition"
             >
-              Tanlash →
+              Tanlash <IconArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -315,17 +319,17 @@ export default function HomePage() {
                 1,200,000 <span className="text-xs font-sans font-normal text-stone-400">so‘m / oy</span>
               </div>
               <ul className="text-xs text-stone-300 space-y-2 pt-3 mt-3 border-t border-stone-800">
-                <li>✓ 80 tagacha xona</li>
-                <li>✓ Boshliq va Meneger paneli</li>
-                <li>✓ Moliya va xarajatlar auditi</li>
-                <li>✓ SMS xabarnomalar</li>
+                <li className="flex items-center gap-2"><IconCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" /> 80 tagacha xona</li>
+                <li className="flex items-center gap-2"><IconCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" /> Boshliq va Meneger paneli</li>
+                <li className="flex items-center gap-2"><IconCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" /> Moliya va xarajatlar auditi</li>
+                <li className="flex items-center gap-2"><IconCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" /> SMS xabarnomalar</li>
               </ul>
             </div>
             <Link
               href="/hotels/1"
-              className="block text-center py-2 text-xs font-bold bg-amber-400 hover:bg-amber-300 text-stone-950 rounded transition"
+              className="flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-amber-400 hover:bg-amber-300 text-stone-950 rounded transition"
             >
-              Tanlash →
+              Tanlash <IconArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -342,16 +346,16 @@ export default function HomePage() {
                 2,800,000 <span className="text-xs font-sans font-normal text-stone-500">so‘m / oy</span>
               </div>
               <ul className="text-xs text-stone-600 space-y-2 pt-3 mt-3 border-t border-stone-200">
-                <li>✓ Cheksiz xonalar va filiallar</li>
-                <li>✓ To‘liq tahlil va moliya</li>
-                <li>✓ 24/7 yordam</li>
+                <li className="flex items-center gap-2"><IconCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" /> Cheksiz xonalar va filiallar</li>
+                <li className="flex items-center gap-2"><IconCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" /> To‘liq tahlil va moliya</li>
+                <li className="flex items-center gap-2"><IconCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" /> 24/7 yordam</li>
               </ul>
             </div>
             <Link
               href="/hotels/1"
-              className="block text-center py-2 text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-900 rounded border border-stone-300 transition"
+              className="flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-900 rounded border border-stone-300 transition"
             >
-              Tanlash →
+              Tanlash <IconArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>

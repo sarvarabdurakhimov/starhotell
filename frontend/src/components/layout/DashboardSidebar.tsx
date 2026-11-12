@@ -3,45 +3,66 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  IconLayoutDashboard,
-  IconCalendarCheck,
+  IconAddressBook,
+  IconArrowLeft,
   IconBed,
-  IconUsers,
-  IconSparkles,
-  IconReceipt,
+  IconCalendarCheck,
+  IconCalendarMonth,
   IconChartBar,
+  IconLayoutDashboard,
+  IconReceipt,
+  IconSparkles,
+  IconStar,
+  IconUsers,
 } from "@tabler/icons-react";
 import { usePanel } from "@/lib/panel-context";
-import { ROLE_LABEL } from "@/lib/session";
+import { ROLE_LABEL, STAFF_PAGES, STAFF_ROLE_LABEL } from "@/lib/session";
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const { role, base } = usePanel();
+  const { role, base, staffRole } = usePanel();
+
+  // Staff panel: only the pages this hotel role works with
+  const STAFF_LINKS: Record<string, { label: string; icon: typeof IconBed }> = {
+    calendar: { label: "Kalendar", icon: IconCalendarMonth },
+    bookings: { label: "Bronlar", icon: IconCalendarCheck },
+    rooms: { label: "Xonalar", icon: IconBed },
+    guests: { label: "Mehmonlar", icon: IconUsers },
+    housekeeping: { label: "Tozalash", icon: IconSparkles },
+  };
 
   const links =
-    role === "manager"
+    role === "staff"
+      ? (STAFF_PAGES[staffRole || ""] || []).map((p) => ({ label: STAFF_LINKS[p].label, href: `${base}/${p}`, icon: STAFF_LINKS[p].icon }))
+      : role === "manager"
       ? [
           { label: "Boshqaruv", href: base, icon: IconLayoutDashboard },
+          { label: "Kalendar", href: `${base}/calendar`, icon: IconCalendarMonth },
           { label: "Xonalar", href: `${base}/rooms`, icon: IconBed },
           { label: "Bronlar", href: `${base}/bookings`, icon: IconCalendarCheck },
           { label: "Tozalash", href: `${base}/housekeeping`, icon: IconSparkles },
           { label: "Mehmonlar", href: `${base}/guests`, icon: IconUsers },
+          { label: "Sharhlar", href: `${base}/reviews`, icon: IconStar },
           { label: "Hisobotlar", href: `${base}/reports`, icon: IconChartBar },
         ]
       : [
           { label: "Boshqaruv", href: base, icon: IconLayoutDashboard },
           { label: "Moliya", href: `${base}/payments`, icon: IconReceipt },
           { label: "Xodimlar", href: `${base}/settings`, icon: IconUsers },
+          { label: "Kalendar", href: `${base}/calendar`, icon: IconCalendarMonth },
           { label: "Xonalar", href: `${base}/rooms`, icon: IconBed },
           { label: "Bronlar", href: `${base}/bookings`, icon: IconCalendarCheck },
+          { label: "Mehmonlar", href: `${base}/guests`, icon: IconAddressBook },
+          { label: "Sharhlar", href: `${base}/reviews`, icon: IconStar },
           { label: "Hisobotlar", href: `${base}/reports`, icon: IconChartBar },
         ];
 
   return (
-    <aside className="w-64 border-r border-stone-200 bg-stone-50 min-h-[calc(100vh-4rem)] p-4 flex flex-col justify-between">
+    // Sticky under the 4rem top nav, so the menu stays put while the page scrolls
+    <aside className="w-64 shrink-0 border-r border-stone-200 bg-stone-50 sticky top-16 self-start h-[calc(100vh-4rem)] overflow-y-auto p-4 flex flex-col justify-between">
       <nav className="space-y-1">
         <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-stone-500">
-          {ROLE_LABEL[role]}
+          {role === "staff" ? STAFF_ROLE_LABEL[staffRole || ""] || ROLE_LABEL.staff : ROLE_LABEL[role]}
         </div>
 
         {links.map((link) => {
@@ -64,14 +85,16 @@ export function DashboardSidebar() {
         })}
       </nav>
 
+      {role !== "staff" && (
       <div className="pt-4 border-t border-stone-200">
         <Link
           href="/dashboard"
           className="text-xs text-stone-700 hover:text-stone-950 font-semibold flex items-center justify-center p-2 rounded bg-stone-200/60 hover:bg-stone-200 transition border border-stone-300"
         >
-          &larr; Mehmonxonalar
+          <IconArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Mehmonxonalar
         </Link>
       </div>
+      )}
     </aside>
   );
 }

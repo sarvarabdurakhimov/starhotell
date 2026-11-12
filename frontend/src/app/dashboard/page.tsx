@@ -24,6 +24,11 @@ export default function DashboardPage() {
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
+        // Staff have no hotel list: send them straight to their own panel
+        if (parsed.role === "staff") {
+          window.location.replace("/xodim");
+          return;
+        }
         setRole(parsed.role === "manager" ? "manager" : "owner");
       } catch {
         // ignore
