@@ -122,6 +122,23 @@ def guests_keyboard(lang, max_guests):
 
 # ── steps ───────────────────────────────────────────────────────────────────
 
+MAX_TYPED_GUESTS = 50
+
+
+def max_occupancy(bot) -> int:
+    return max([rt.max_occupancy for rt in RoomType.objects.filter(hotel_id=bot.hotel_id)] or [1])
+
+
+def choose_guests(c: Ctx, n: int):
+    """The guest picked (button) or typed how many people: search rooms that fit them."""
+    most = max_occupancy(c.bot)
+    if n > most:
+        return c.ask_more(c.t('too_many_guests', max=most, n=n))
+    c.set_state('rooms', guests=n)
+    c.ask(c.t('searching'))
+    return show_rooms(c)
+
+
 def _max_advance(bot):
     s = getattr(bot.hotel, 'settings', None)
     return getattr(s, 'max_advance_booking_days', 365) or 365
@@ -190,11 +207,14 @@ def show_rooms(c: Ctx):
 
 
 def ask_name_or_phone(c: Ctx):
-    # Asked again on every booking: the flags live in this booking's dialog data only
-    if not (c.chat.data.get('got_name') and c.chat.first_name and c.chat.last_name):
+    # Name and phone are kept on the chat for good: a returning guest (even months later)
+    # goes straight to the summary. They are asked again only when the guest taps "edit".
+    d = c.chat.data
+    editing = bool(d.get('edit'))
+    if not (c.chat.first_name and c.chat.last_name) or (editing and not d.get('got_name')):
         c.set_state('name')
         return c.ask(c.t('ask_name'), {'remove_keyboard': True})
-    if not (c.chat.data.get('got_phone') and c.chat.phone):
+    if not c.chat.phone or (editing and not d.get('got_phone')):
         c.set_state('phone')
         return c.ask(c.t('ask_phone'), {
             'keyboard': [[{'text': c.t('share_phone'), 'request_contact': True}]],
@@ -216,16 +236,19 @@ def show_summary(c: Ctx):
         c.t('summary', hotel=c.bot.hotel.name, room_type=rt.name, check_in=svc.fmt_date(ci), check_out=svc.fmt_date(co),
             nights=nights, guests=d['guests'], name=f'{c.chat.first_name} {c.chat.last_name}'.strip(),
             phone=c.chat.phone, total=svc.price_text(c.bot, rt.base_price * nights)),
-        {'inline_keyboard': [[
-            {'text': c.t('confirm'), 'callback_data': 'ok'},
-            {'text': c.t('cancel'), 'callback_data': 'no'},
-        ]]},
+        {'inline_keyboard': [
+            [{'text': c.t('confirm'), 'callback_data': 'ok'}, {'text': c.t('cancel'), 'callback_data': 'no'}],
+            [{'text': c.t('edit_details'), 'callback_data': 'ed'}],
+        ]},
     )
 
 
 def go_menu(c: Ctx, text=None):
     c.clear()
     c.set_state('')
+    if not text and c.chat.first_name:
+        # A guest we already know: greet them by name, their details are still on file
+        text = c.t('welcome_back', hotel=c.bot.hotel.name, name=html.escape(c.chat.first_name))
     return c.say(text or c.t('welcome', hotel=c.bot.hotel.name), main_menu(c.lang))
 
 
@@ -417,6 +440,10 @@ def on_message(bot: BotConfig, msg: dict):
         return ask_name_or_phone(c)
     if chat.state == 'phone':
         return ask_name_or_phone(c)
+    if chat.state == 'guests' and chat.data.get('co') and text:
+        if not text.isdigit() or not 1 <= int(text) <= MAX_TYPED_GUESTS:
+            return c.ask_more(c.t('bad_guests'))
+        return choose_guests(c, int(text))
     return c.say(c.t('unknown'), main_menu(c.lang))
 
 
@@ -440,7 +467,7 @@ def on_callback(bot: BotConfig, cq: dict):
     if data == 'noop':
         return
     # A button that answers a booking question: that question message goes away with the next one
-    if data in ('book', 'ok', 'no') or data.startswith(('lang:', 'in:', 'out:', 'g:', 'rt:')):
+    if data in ('book', 'ok', 'no', 'ed') or data.startswith(('lang:', 'in:', 'out:', 'g:', 'rt:')):
         c.track(msg.get('message_id'))
 
     if data.startswith('lang:'):
@@ -463,13 +490,10 @@ def on_callback(bot: BotConfig, cq: dict):
         if not (ci < co <= ci + timedelta(days=svc.MAX_NIGHTS)):
             return c.ask_more(c.t('night_limit', n=svc.MAX_NIGHTS))
         c.set_state('guests', co=co.isoformat())
-        max_occ = max([rt.max_occupancy for rt in RoomType.objects.filter(hotel_id=bot.hotel_id)] or [1])
         return c.ask(c.t('pick_guests', check_in=svc.fmt_date(ci), check_out=svc.fmt_date(co), nights=(co - ci).days),
-                     guests_keyboard(c.lang, max_occ))
+                     guests_keyboard(c.lang, max_occupancy(bot)))
     if data.startswith('g:') and chat.data.get('co'):
-        c.set_state('rooms', guests=int(data[2:]))
-        c.ask(c.t('searching'))
-        return show_rooms(c)
+        return choose_guests(c, int(data[2:]))
     if data.startswith('ph:'):
         rt = RoomType.objects.filter(pk=int(data[3:]), hotel_id=bot.hotel_id).first()
         if rt:
@@ -509,6 +533,10 @@ def on_callback(bot: BotConfig, cq: dict):
             return start_booking(c)
         c.set_state('', ci=None, co=None, guests=None, rt=None)
         return c.say(c.t('request_sent', reference=booking.reference))  # result: stays in the chat
+    if data == 'ed' and chat.state == 'confirm':
+        # Change the saved name / phone: ask both again, then back to the summary
+        c.set_state('details', edit=True, got_name=False, got_phone=False)
+        return ask_name_or_phone(c)
     if data == 'no':
         c.clear()
         c.set_state('')

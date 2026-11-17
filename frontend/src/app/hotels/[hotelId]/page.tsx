@@ -21,7 +21,6 @@ import {
   IconClock,
   IconCurrencyDollar,
   IconDownload,
-  IconEye,
   IconFilter,
   IconLogout,
   IconRefresh,
@@ -280,14 +279,6 @@ export default function HotelDashboardPage() {
             </div>
             <div className="mt-2 text-[11px] text-stone-500 flex items-center justify-between">
               <span>Qaytarish: {Number(kpis.refunds).toLocaleString()} {currency}</span>
-              <Link
-                href={`${base}/payments`}
-                title="Batafsil"
-                aria-label="Batafsil"
-                className="p-1 rounded text-amber-800 hover:text-amber-950 hover:bg-amber-50 transition"
-              >
-                <IconEye className="w-4 h-4" />
-              </Link>
             </div>
           </div>
 
@@ -420,14 +411,6 @@ export default function HotelDashboardPage() {
                 className="flex items-center justify-between p-2.5 bg-white hover:bg-stone-100 rounded border border-stone-200 text-xs font-semibold text-stone-900 transition"
               >
                 <span>Xodimlar va rollar</span>
-                <IconChevronRight className="w-4 h-4 text-stone-400" />
-              </Link>
-
-              <Link
-                href={`${base}/payments`}
-                className="flex items-center justify-between p-2.5 bg-white hover:bg-stone-100 rounded border border-stone-200 text-xs font-semibold text-stone-900 transition"
-              >
-                <span>Xarajatlarni tasdiqlash</span>
                 <IconChevronRight className="w-4 h-4 text-stone-400" />
               </Link>
 

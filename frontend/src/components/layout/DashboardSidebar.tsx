@@ -10,7 +10,6 @@ import {
   IconCalendarMonth,
   IconChartBar,
   IconLayoutDashboard,
-  IconReceipt,
   IconSparkles,
   IconStar,
   IconUsers,
@@ -47,7 +46,6 @@ export function DashboardSidebar() {
         ]
       : [
           { label: "Boshqaruv", href: base, icon: IconLayoutDashboard },
-          { label: "Moliya", href: `${base}/payments`, icon: IconReceipt },
           { label: "Xodimlar", href: `${base}/settings`, icon: IconUsers },
           { label: "Kalendar", href: `${base}/calendar`, icon: IconCalendarMonth },
           { label: "Xonalar", href: `${base}/rooms`, icon: IconBed },

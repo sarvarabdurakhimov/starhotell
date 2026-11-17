@@ -4,6 +4,7 @@ TEXTS = {
     'uz': {
         'choose_lang': "Tilni tanlang / Выберите язык",
         'welcome': "Assalomu alaykum! <b>{hotel}</b> mehmonxonasining bron botiga xush kelibsiz.\n\nQuyidagi menyudan tanlang:",
+        'welcome_back': "Qaytganingizdan xursandmiz, <b>{name}</b>! 😊\n<b>{hotel}</b> — ma'lumotlaringiz saqlangan, xonani tanlab darhol bron qilishingiz mumkin.\n\nQuyidagi menyudan tanlang:",
         'menu_book': "🛏 Xona bron qilish",
         'menu_my': "📋 Mening bronlarim",
         'menu_contact': "📞 Aloqa",
@@ -19,7 +20,9 @@ TEXTS = {
         'contact': "<b>{hotel}</b>\n{address}\n📞 {phone}",
         'pick_checkin': "📅 <b>Kelish sanasini</b> tanlang:",
         'pick_checkout': "Kelish: <b>{check_in}</b>\n\n📅 Endi <b>ketish sanasini</b> tanlang:",
-        'pick_guests': "Kelish: <b>{check_in}</b>\nKetish: <b>{check_out}</b> ({nights} kecha)\n\n👥 Necha kishi bo'lasiz?",
+        'pick_guests': "Kelish: <b>{check_in}</b>\nKetish: <b>{check_out}</b> ({nights} kecha)\n\n👥 Necha kishi bo'lasiz?\n<i>Sonini yozib yuboring (masalan: 2) yoki tugmani bosing.</i>",
+        'bad_guests': "Mehmonlar sonini raqam bilan yozing, masalan: <b>2</b>",
+        'too_many_guests': "😔 Bitta xonaga ko'pi bilan <b>{max}</b> kishi sig'adi. {n} kishi uchun bir nechta xona kerak: har bir xonani alohida bron qiling yoki mehmonxona bilan bog'laning.\n\nBitta xona uchun necha kishi? Sonini yozing.",
         'searching': "🔎 Bo'sh xonalar qidirilmoqda...",
         'no_rooms': "😔 Afsuski, bu sanalarda {guests} kishilik bo'sh xona yo'q. Boshqa sanani tanlab ko'ring.",
         'room_caption': "<b>{name}</b>\n{description}\n\n👥 {occupancy} kishigacha\n💰 {nights} kecha: <b>{total}</b>",
@@ -39,6 +42,7 @@ TEXTS = {
             "So'rov menejerga yuboriladi. Tasdiqlangach, to'lov uchun xabar keladi."
         ),
         'confirm': "✅ Tasdiqlash",
+        'edit_details': "✏️ Ism yoki telefonni o'zgartirish",
         'cancel': "❌ Bekor qilish",
         'cancelled_flow': "Bekor qilindi.",
         'request_sent': (
@@ -100,6 +104,7 @@ TEXTS = {
     'ru': {
         'choose_lang': "Tilni tanlang / Выберите язык",
         'welcome': "Здравствуйте! Добро пожаловать в бот бронирования отеля <b>{hotel}</b>.\n\nВыберите в меню:",
+        'welcome_back': "Рады снова вас видеть, <b>{name}</b>! 😊\n<b>{hotel}</b> — ваши данные сохранены, можно сразу выбрать номер и забронировать.\n\nВыберите в меню:",
         'menu_book': "🛏 Забронировать номер",
         'menu_my': "📋 Мои брони",
         'menu_contact': "📞 Контакты",
@@ -115,7 +120,9 @@ TEXTS = {
         'contact': "<b>{hotel}</b>\n{address}\n📞 {phone}",
         'pick_checkin': "📅 Выберите <b>дату заезда</b>:",
         'pick_checkout': "Заезд: <b>{check_in}</b>\n\n📅 Теперь выберите <b>дату выезда</b>:",
-        'pick_guests': "Заезд: <b>{check_in}</b>\nВыезд: <b>{check_out}</b> ({nights} ноч.)\n\n👥 Сколько вас будет?",
+        'pick_guests': "Заезд: <b>{check_in}</b>\nВыезд: <b>{check_out}</b> ({nights} ноч.)\n\n👥 Сколько вас будет?\n<i>Напишите число (например: 2) или нажмите кнопку.</i>",
+        'bad_guests': "Напишите количество гостей цифрой, например: <b>2</b>",
+        'too_many_guests': "😔 В один номер помещается не больше <b>{max}</b> чел. Для {n} чел. нужно несколько номеров: забронируйте каждый отдельно или свяжитесь с отелем.\n\nСколько человек на один номер? Напишите число.",
         'searching': "🔎 Ищем свободные номера...",
         'no_rooms': "😔 К сожалению, на эти даты нет свободных номеров на {guests} чел. Попробуйте другие даты.",
         'room_caption': "<b>{name}</b>\n{description}\n\n👥 до {occupancy} чел.\n💰 {nights} ноч.: <b>{total}</b>",
@@ -135,6 +142,7 @@ TEXTS = {
             "Запрос будет отправлен менеджеру. После подтверждения придёт сообщение для оплаты."
         ),
         'confirm': "✅ Подтвердить",
+        'edit_details': "✏️ Изменить имя или телефон",
         'cancel': "❌ Отмена",
         'cancelled_flow': "Отменено.",
         'request_sent': (

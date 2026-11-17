@@ -130,12 +130,28 @@ def open_request(chat: TelegramChat):
     return chat.bookings.filter(status=BookingStatus.PENDING).order_by('-created_at').first()
 
 
+def _digits(phone: str) -> str:
+    return ''.join(ch for ch in phone or '' if ch.isdigit())
+
+
+def find_guest_by_phone(hotel_id: int, phone: str):
+    """The hotel's existing guest with this phone, however it was typed
+    (+998 90 123-45-67, 998901234567, 90 123 45 67 …): the last 9 digits must match."""
+    from apps.guests.models import Guest
+    tail = _digits(phone)[-9:]
+    if len(tail) < 7:
+        return None
+    candidates = Guest.objects.filter(hotel_id=hotel_id, phone__contains=tail[-2:])  # "45-67" style: only the last 2 digits are surely adjacent.order_by('-updated_at')
+    return next((g for g in candidates if _digits(g.phone)[-9:] == tail), None)
+
+
 def _guest_for(chat: TelegramChat):
     from apps.guests.models import Guest
     hotel_id = chat.bot.hotel_id
     guest = chat.guest
     if guest is None and chat.phone:
-        guest = Guest.objects.filter(hotel_id=hotel_id, phone=chat.phone).first()
+        # e.g. the reception registered this guest months ago: reuse that record, not a new one
+        guest = find_guest_by_phone(hotel_id, chat.phone)
     if guest is None:
         guest = Guest(hotel_id=hotel_id)
     guest.first_name = chat.first_name or guest.first_name or 'Telegram'

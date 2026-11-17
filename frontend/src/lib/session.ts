@@ -47,7 +47,7 @@ export const STAFF_PAGES: Record<string, string[]> = {
 
 // Panel sub-pages each role has (matches the folders under app/boshliq and app/meneger).
 const ROLE_PAGES: Record<PanelRole, string[]> = {
-  owner: ["payments", "settings", "rooms", "bookings", "guests", "reviews", "reports"],
+  owner: ["settings", "rooms", "bookings", "guests", "reviews", "reports"],
   manager: ["rooms", "bookings", "housekeeping", "guests", "reviews", "reports"],
   staff: ["calendar", "bookings", "rooms", "guests", "housekeeping"],
 };
