@@ -154,6 +154,25 @@ ovqat va shunga o'xshash narsalarni buyurtma qila olsin.
   qilinganda mijozga "🛎 Xonaga buyurtma" tugmasi (Mini App https manzilda bo'lsa).
 - Testlar: `tests/test_room_service.py` (13 ta). Mahalliy tekshiruv: "Xizmatlar" bo'limi Edge'da ochildi.
 
+## 9-vazifa (2026-11-19): Telegram bot javob bermayapti (Railway)
+
+**Vazifa:** mehmonlar boti (@starhotell_bot) javob qaytarmayapti, Railway'dan bo'lsa kerak, tuzatish.
+
+**Topilgan sabab:** Telegram'da botning webhook'i yo'q edi (6 ta xabar javobsiz kutib turibdi), ya'ni xabarlarni
+hech kim olmayapti. Railway eski yopiq `starhotel` repoga ulangan bo'lishi ehtimoli katta (unda eski 8d21151
+versiya); yangi ishlar `starhotell` repoda va unda deploy yozuvlari yo'q. Bot oldin javob bergan paytlar
+mahalliy kompyuterdagi polling hisobiga bo'lgan.
+
+**Kodda tuzatildi (commit 0106ff1, starhotell'ga push qilindi):**
+- Webhook endi birinchi o'rnatiladi; menyu tugmasi xato bersa ham webhook o'rnatiladi.
+- Ommaviy manzili yo'q server (masalan mahalliy panel) boshqa serverning webhook'ini o'chirmaydi.
+- `expire_telegram_requests` (har 5 daqiqalik cron) webhook yo'qolgan bo'lsa qayta o'rnatadi.
+- Testlar: `tests/test_telegram_transport.py` (4 ta).
+
+**Foydalanuvchi qilishi kerak:** Railway'da backend service'ni `starhotell` repoga ulash va Redeploy;
+`RAILWAY_PUBLIC_DOMAIN` (Generate Domain) yoki `PUBLIC_API_URL` bo'lishi shart. Deploy so'm migratsiyasini
+haqiqiy bazada ishga tushiradi (qaytarib bo'lmaydi) — oldin zaxira nusxa.
+
 ---
 
 ## Holat (2026-11-18)
