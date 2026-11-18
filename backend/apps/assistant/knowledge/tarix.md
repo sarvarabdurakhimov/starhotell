@@ -144,6 +144,6 @@ deploy (menyu tugmasi o'rnatiladi).
   Telegram ID'si backend/.env'da. Erkin savollarga javob berishi uchun hali `ANTHROPIC_API_KEY` kerak
   (platform.claude.com); busiz faqat /vazifalar, /ozgarishlar, /holat ishlaydi.
 - Railway cron (`expire_telegram_requests`) hali sozlanmagan.
-- 7-vazifa (Mini App) commit qilindi; Telegram'da ishlashi uchun frontend https'da deploy qilinishi va
+- 7-vazifa (Mini App) GitHub'ga push qilindi (2026-11-19); Telegram'da ishlashi uchun frontend https'da deploy qilinishi va
   `TELEGRAM_WEBAPP_URL` o'rnatilishi kerak.
 - Next.js xavfsizlik yangilanishi hali qilinmagan.
