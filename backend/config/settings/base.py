@@ -172,6 +172,7 @@ REST_FRAMEWORK = {
         'anon': '20/minute',
         'user': '200/minute',
         'auth': '10/minute',
+        'telegram_webapp': '120/minute',
     },
 }
 
@@ -208,6 +209,7 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept', 'accept-encoding', 'authorization', 'content-type',
     'dnt', 'origin', 'user-agent', 'x-csrftoken', 'x-requested-with',
+    'x-telegram-init-data',  # Telegram Mini App requests
 ]
 
 # ---------------------------------------------------------------------------
@@ -332,3 +334,6 @@ FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 # Public https address of this backend (e.g. https://starhotel-backend.onrender.com).
 # When set, Telegram bots use a webhook; otherwise run `manage.py run_telegram_bot` (long polling).
 PUBLIC_API_URL = env('PUBLIC_API_URL', default='').rstrip('/')
+# Public https address of the frontend that serves the Telegram Mini App (/tg/<bot id>).
+# Defaults to FRONTEND_URL; Telegram only opens https pages, so with http the bot shows no app button.
+TELEGRAM_WEBAPP_URL = env('TELEGRAM_WEBAPP_URL', default='').rstrip('/')

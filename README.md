@@ -135,6 +135,20 @@ cd backend; $env:DJANGO_SETTINGS_MODULE="config.settings.local"; .venv\Scripts\p
 
 ---
 
+## 📱 Telegram Mini App (guests)
+
+Each hotel's guest bot opens a booking web app inside Telegram: rooms with photos, dates and guests,
+prices in so'm, a booking request, and "my bookings" (cancel, pay). Page: `frontend/src/app/tg/[botId]`,
+API: `/api/v1/telegram/webapp/<bot id>/...` (`apps/telegram_bot/webapp.py`). There is no login: every
+request carries Telegram's signed `initData`, checked with the bot's token.
+
+Telegram opens only **https** pages, so the bot shows the app buttons (menu button + "🌐 Ilovada bron
+qilish") only when `TELEGRAM_WEBAPP_URL` (or `FRONTEND_URL`) is https - i.e. on the deployed frontend.
+The menu button is set when the bot is saved in the panel, on deploy (`set_telegram_webhooks`) and
+when `run_telegram_bot` starts.
+
+---
+
 ## 🤖 Owner's Claude Assistant (Telegram)
 
 A private Telegram bot, separate from the hotels' guest bots, that answers the owner's questions about

@@ -112,6 +112,28 @@ vazifalar bergani bo'lsin.
 - Bot faqat ruxsat berilgan Telegram ID'larga javob beradi. Kodni o'zgartira olmaydi, faqat tarixni biladi.
 - Telegram buyruqlari: /vazifalar, /ozgarishlar, /yangi (suhbatni yangilash), /id.
 
+## 7-vazifa (2026-11-19): StarHotel botiga Telegram Web App (Mini App)
+
+**Vazifa:** mehmonxona botiga Telegram web app qo'shish.
+
+**Nima qilindi:**
+- Frontend sahifa `/tg/<bot id>` (`frontend/src/app/tg/[botId]`, `components/telegram/MiniApp.tsx`):
+  xonalar rasmlari bilan, sana va mehmonlar soni, bo'sh xonalar va jami narx so'mda, ism/telefon,
+  bron so'rovi; "Bronlarim": holat, so'rovni bekor qilish, bekor qilishni so'rash, to'lov (hisob chatga
+  yuboriladi). O'zbek va rus tillari, Telegram mavzusi ranglari (yorug'/qorong'i), Telegram orqaga tugmasi.
+- Backend `apps/telegram_bot/webapp.py`, API `/api/v1/telegram/webapp/<bot id>/` (info, availability,
+  book, bookings, bookings/<id>/cancel|pay). Login yo'q: Telegram imzolagan `initData` bot tokeni bilan
+  tekshiriladi (24 soat amal qiladi). Chat bot bilan bir xil qoidalar: qora ro'yxat, bitta ochiq so'rov,
+  30 kechagacha, menejerga xabar, chatga tasdiq xabari.
+- Bot: menyu tugmasi "Bron" va "🌐 Ilovada bron qilish" tugmasi — faqat `TELEGRAM_WEBAPP_URL`
+  (yoki `FRONTEND_URL`) https bo'lsa chiqadi, chunki Telegram faqat https sahifani ochadi.
+- Testlar: `tests/test_telegram_webapp.py` (11 ta). Mahalliy tekshiruv: sahifa Edge'da imzolangan
+  initData bilan ochildi, xonalar va narxlar ko'rindi.
+
+**Ishga tushirish uchun:** frontend https manzilda (Vercel) deploy qilinishi va backend'da
+`TELEGRAM_WEBAPP_URL=https://...` o'rnatilishi kerak; keyin bot sozlamasini panelda bir marta saqlash yoki
+deploy (menyu tugmasi o'rnatiladi).
+
 ---
 
 ## Holat (2026-11-18)
@@ -122,4 +144,6 @@ vazifalar bergani bo'lsin.
   Telegram ID'si backend/.env'da. Erkin savollarga javob berishi uchun hali `ANTHROPIC_API_KEY` kerak
   (platform.claude.com); busiz faqat /vazifalar, /ozgarishlar, /holat ishlaydi.
 - Railway cron (`expire_telegram_requests`) hali sozlanmagan.
+- 7-vazifa (Mini App) commit qilindi; Telegram'da ishlashi uchun frontend https'da deploy qilinishi va
+  `TELEGRAM_WEBAPP_URL` o'rnatilishi kerak.
 - Next.js xavfsizlik yangilanishi hali qilinmagan.

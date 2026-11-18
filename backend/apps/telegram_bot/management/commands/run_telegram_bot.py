@@ -11,6 +11,7 @@ from apps.telegram_bot.api import TelegramAPI, TelegramError
 from apps.telegram_bot.handlers import handle_update
 from apps.telegram_bot.models import BotConfig
 from apps.telegram_bot.services import expire_stale
+from apps.telegram_bot.views import set_menu_button
 
 ALLOWED = ['message', 'callback_query', 'pre_checkout_query']
 
@@ -52,6 +53,7 @@ class Command(BaseCommand):
                 try:
                     if bot.token not in cleared:
                         api.call('deleteWebhook')  # getUpdates does not work while a webhook is set
+                        set_menu_button(bot, api)
                         cleared.add(bot.token)
                     updates = api.call('getUpdates', _timeout=wait + 15, timeout=wait,
                                        offset=bot.last_update_id + 1, allowed_updates=ALLOWED)

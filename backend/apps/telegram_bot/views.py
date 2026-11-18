@@ -19,9 +19,21 @@ from .models import BotConfig
 logger = logging.getLogger(__name__)
 
 
+def set_menu_button(bot: BotConfig, api: TelegramAPI = None):
+    """The button left of the message box opens the Mini App when it has an https address."""
+    from .webapp import webapp_url
+    api = api or TelegramAPI(bot.token)
+    url = webapp_url(bot)
+    if url:
+        api.call('setChatMenuButton', menu_button={'type': 'web_app', 'text': 'Bron', 'web_app': {'url': url}})
+    else:
+        api.call('setChatMenuButton', menu_button={'type': 'commands'})
+
+
 def configure_transport(bot: BotConfig) -> str:
     """Webhook when the backend has a public https address, otherwise long polling."""
     api = TelegramAPI(bot.token)
+    set_menu_button(bot, api)
     api.call('setMyCommands', commands=[
         {'command': 'start', 'description': 'Menyu / Меню'},
         {'command': 'book', 'description': 'Xona bron qilish / Забронировать'},

@@ -42,6 +42,8 @@ TEXTS = {
             "So'rov menejerga yuboriladi. Tasdiqlangach, to'lov uchun xabar keladi."
         ),
         'confirm': "✅ Tasdiqlash",
+        'webapp_offer': "Xonalarni rasmlari bilan ko'rib, ilovada qulay bron qiling:",
+        'webapp_open': "🌐 Ilovada bron qilish",
         'edit_details': "✏️ Ism yoki telefonni o'zgartirish",
         'cancel': "❌ Bekor qilish",
         'cancelled_flow': "Bekor qilindi.",
@@ -142,6 +144,8 @@ TEXTS = {
             "Запрос будет отправлен менеджеру. После подтверждения придёт сообщение для оплаты."
         ),
         'confirm': "✅ Подтвердить",
+        'webapp_offer': "Посмотрите номера с фото и забронируйте в приложении:",
+        'webapp_open': "🌐 Бронировать в приложении",
         'edit_details': "✏️ Изменить имя или телефон",
         'cancel': "❌ Отмена",
         'cancelled_flow': "Отменено.",

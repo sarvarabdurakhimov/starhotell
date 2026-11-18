@@ -249,7 +249,17 @@ def go_menu(c: Ctx, text=None):
     if not text and c.chat.first_name:
         # A guest we already know: greet them by name, their details are still on file
         text = c.t('welcome_back', hotel=c.bot.hotel.name, name=html.escape(c.chat.first_name))
-    return c.say(text or c.t('welcome', hotel=c.bot.hotel.name), main_menu(c.lang))
+    result = c.say(text or c.t('welcome', hotel=c.bot.hotel.name), main_menu(c.lang))
+    offer_webapp(c)
+    return result
+
+
+def offer_webapp(c: Ctx):
+    """An inline button that opens the Mini App (only when it has a public https address)."""
+    from .webapp import webapp_url
+    url = webapp_url(c.bot)
+    if url:
+        c.say(c.t('webapp_offer'), {'inline_keyboard': [[{'text': c.t('webapp_open'), 'web_app': {'url': url}}]]})
 
 
 def my_bookings(c: Ctx):
