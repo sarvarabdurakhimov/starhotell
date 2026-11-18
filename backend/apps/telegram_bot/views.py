@@ -30,25 +30,59 @@ def set_menu_button(bot: BotConfig, api: TelegramAPI = None):
         api.call('setChatMenuButton', menu_button={'type': 'commands'})
 
 
+def webhook_url(bot: BotConfig) -> str:
+    return f'{settings.PUBLIC_API_URL}/api/v1/telegram/webhook/{bot.id}/' if settings.PUBLIC_API_URL else ''
+
+
 def configure_transport(bot: BotConfig) -> str:
-    """Webhook when the backend has a public https address, otherwise long polling."""
+    """Webhook when the backend has a public https address, otherwise long polling.
+
+    The webhook comes first: menu button and commands are extras and must never keep it from being set.
+    A server without a public address (e.g. a developer's computer sharing the production token) leaves
+    another server's webhook alone instead of deleting it, so it cannot silence the live bot.
+    """
     api = TelegramAPI(bot.token)
-    set_menu_button(bot, api)
-    api.call('setMyCommands', commands=[
-        {'command': 'start', 'description': 'Menyu / Меню'},
-        {'command': 'book', 'description': 'Xona bron qilish / Забронировать'},
-        {'command': 'reviews', 'description': 'Sharhlar / Отзывы'},
-    ])
-    if settings.PUBLIC_API_URL:
-        api.call(
-            'setWebhook',
-            url=f'{settings.PUBLIC_API_URL}/api/v1/telegram/webhook/{bot.id}/',
-            secret_token=bot.webhook_secret,
-            allowed_updates=['message', 'callback_query', 'pre_checkout_query'],
-        )
-        return 'webhook'
-    api.call('deleteWebhook')
-    return 'polling'
+    url = webhook_url(bot)
+    if url:
+        api.call('setWebhook', url=url, secret_token=bot.webhook_secret,
+                 allowed_updates=['message', 'callback_query', 'pre_checkout_query'])
+        mode = 'webhook'
+    elif (api.call('getWebhookInfo') or {}).get('url'):
+        logger.warning('@%s is served by another server\'s webhook; leaving it in place', bot.bot_username)
+        mode = 'remote'
+    else:
+        api.call('deleteWebhook')
+        mode = 'polling'
+    try:
+        set_menu_button(bot, api)
+        api.call('setMyCommands', commands=[
+            {'command': 'start', 'description': 'Menyu / Меню'},
+            {'command': 'book', 'description': 'Xona bron qilish / Забронировать'},
+            {'command': 'reviews', 'description': 'Sharhlar / Отзывы'},
+        ])
+    except TelegramError as exc:
+        logger.warning('Menu / commands for @%s not set: %s', bot.bot_username, exc)
+    return mode
+
+
+def ensure_webhooks() -> list:
+    """Re-point any active bot whose webhook is missing or wrong (e.g. deleted from elsewhere).
+
+    Runs from the scheduled job, so a lost webhook heals itself within minutes. Returns what was fixed.
+    """
+    if not settings.PUBLIC_API_URL:
+        return []
+    fixed = []
+    for bot in BotConfig.objects.filter(is_active=True).select_related('hotel'):
+        try:
+            current = (TelegramAPI(bot.token).call('getWebhookInfo') or {}).get('url', '')
+            if current != webhook_url(bot):
+                configure_transport(bot)
+                fixed.append(bot.bot_username)
+                logger.warning('Webhook of @%s was %r; set again', bot.bot_username, current)
+        except (TelegramError, OSError) as exc:
+            logger.warning('Webhook check for @%s failed: %s', bot.bot_username, exc)
+    return fixed
 
 
 def _mask(value: str) -> str:

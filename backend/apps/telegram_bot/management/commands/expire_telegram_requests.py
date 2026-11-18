@@ -1,4 +1,5 @@
-"""Cancel lapsed Telegram booking requests (unpaid in time / unanswered before arrival).
+"""Cancel lapsed Telegram booking requests (unpaid in time / unanswered before arrival),
+and restore any bot webhook that went missing.
 
     python manage.py expire_telegram_requests
 
@@ -14,5 +15,9 @@ class Command(BaseCommand):
     help = 'Cancel Telegram booking requests whose payment time or arrival date has passed.'
 
     def handle(self, *args, **opts):
+        from apps.telegram_bot.views import ensure_webhooks
         n = expire_stale()
         self.stdout.write(f'Expired requests: {n}')
+        fixed = ensure_webhooks()  # a lost webhook (bot not answering) is restored on the next run
+        if fixed:
+            self.stdout.write(f"Webhooks restored: {', '.join('@' + u for u in fixed)}")
