@@ -166,5 +166,5 @@ ovqat va shunga o'xshash narsalarni buyurtma qila olsin.
 - Railway cron (`expire_telegram_requests`) hali sozlanmagan.
 - 7-vazifa (Mini App) GitHub'ga push qilindi (2026-11-19); Telegram'da ishlashi uchun frontend https'da deploy qilinishi va
   `TELEGRAM_WEBAPP_URL` o'rnatilishi kerak.
-- 8-vazifa (xonaga buyurtmalar) commit qilindi.
+- 8-vazifa (xonaga buyurtmalar) GitHub'ga push qilindi (2026-11-19).
 - Next.js xavfsizlik yangilanishi hali qilinmagan.
