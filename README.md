@@ -149,6 +149,17 @@ when `run_telegram_bot` starts.
 
 ---
 
+## 🛎 Room Service (orders to the room)
+
+A checked-in guest orders water, fruit, towels, blankets, pillows, food and the like from the Mini App's
+**Xizmatlar** tab (only while the stay is in progress). Staff get a Telegram notice and handle orders in the
+panel's **Buyurtmalar** page (front desk and housekeeping: accept / delivered / cancel, mark paid; finance and
+auditor view only). The owner or manager edits the menu there (price 0 = free; a default list can be added in
+one click). Payment is taken at the front desk. After check-in the bot sends the guest a button that opens the
+Services tab (needs the https Mini App address). Code: `apps/room_service`, `frontend/src/screens/OrdersPage.tsx`.
+
+---
+
 ## 🤖 Owner's Claude Assistant (Telegram)
 
 A private Telegram bot, separate from the hotels' guest bots, that answers the owner's questions about

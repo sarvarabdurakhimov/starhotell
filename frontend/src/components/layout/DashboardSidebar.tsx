@@ -13,6 +13,7 @@ import {
   IconSparkles,
   IconStar,
   IconUsers,
+  IconToolsKitchen2,
 } from "@tabler/icons-react";
 import { usePanel } from "@/lib/panel-context";
 import { ROLE_LABEL, STAFF_PAGES, STAFF_ROLE_LABEL } from "@/lib/session";
@@ -28,6 +29,7 @@ export function DashboardSidebar() {
     rooms: { label: "Xonalar", icon: IconBed },
     guests: { label: "Mehmonlar", icon: IconUsers },
     housekeeping: { label: "Tozalash", icon: IconSparkles },
+    orders: { label: "Buyurtmalar", icon: IconToolsKitchen2 },
   };
 
   const links =
@@ -40,6 +42,7 @@ export function DashboardSidebar() {
           { label: "Xonalar", href: `${base}/rooms`, icon: IconBed },
           { label: "Bronlar", href: `${base}/bookings`, icon: IconCalendarCheck },
           { label: "Tozalash", href: `${base}/housekeeping`, icon: IconSparkles },
+          { label: "Buyurtmalar", href: `${base}/orders`, icon: IconToolsKitchen2 },
           { label: "Mehmonlar", href: `${base}/guests`, icon: IconUsers },
           { label: "Sharhlar", href: `${base}/reviews`, icon: IconStar },
           { label: "Hisobotlar", href: `${base}/reports`, icon: IconChartBar },
@@ -51,6 +54,7 @@ export function DashboardSidebar() {
           { label: "Xonalar", href: `${base}/rooms`, icon: IconBed },
           { label: "Bronlar", href: `${base}/bookings`, icon: IconCalendarCheck },
           { label: "Mehmonlar", href: `${base}/guests`, icon: IconAddressBook },
+          { label: "Buyurtmalar", href: `${base}/orders`, icon: IconToolsKitchen2 },
           { label: "Sharhlar", href: `${base}/reviews`, icon: IconStar },
           { label: "Hisobotlar", href: `${base}/reports`, icon: IconChartBar },
         ];

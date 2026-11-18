@@ -68,6 +68,29 @@ interface MyBooking {
   can_ask_cancel: boolean;
 }
 
+interface SvcItem {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+}
+interface SvcOrder {
+  id: number;
+  status: "new" | "accepted" | "delivered" | "cancelled";
+  created_at: string;
+  note: string;
+  total: number;
+  is_paid: boolean;
+  lines: { name: string; quantity: number; price: number }[];
+  can_cancel: boolean;
+}
+interface Services {
+  stay: { room_number: string; check_out: string; reference: string } | null;
+  categories: { value: string; label: string }[];
+  items: SvcItem[];
+  orders: SvcOrder[];
+}
+
 class ApiError extends Error {}
 
 // ── texts ───────────────────────────────────────────────────────────────────
@@ -109,6 +132,20 @@ const T = {
     confirmAskCancel: "Bronni bekor qilish so'rovi menejerga yuboriladi. Davom etasizmi?",
     contacts: "Aloqa",
     error: "Xatolik yuz berdi. Qayta urinib ko'ring.",
+    tabServices: "Xizmatlar",
+    noStay: "Xizmatlar mehmonxonaga joylashganingizdan keyin ochiladi: suv, meva, sochiq, ko'rpa, ovqat va boshqalarni xonangizga buyurtma qilasiz.",
+    room: (n: string) => `${n}-xona`,
+    free: "bepul",
+    cart: "Savatcha",
+    notePlaceholder: "Izoh (masalan: soat 20:00 da olib keling)",
+    order: "Buyurtma berish",
+    ordered: "Buyurtma yuborildi! Xodim qabul qilgach, botda xabar olasiz.",
+    payNote: "To'lov qabulxonada, chiqishda.",
+    myOrders: "Buyurtmalarim",
+    cancelOrder: "Bekor qilish",
+    confirmCancelOrder: "Buyurtmani bekor qilasizmi?",
+    orderStatus: { new: "⏳ Yuborildi", accepted: "🛎 Qabul qilindi", delivered: "✅ Yetkazildi", cancelled: "❌ Bekor qilindi" },
+    menuEmpty: "Mehmonxona hali menyu qo'shmagan.",
   },
   ru: {
     loading: "Загрузка…",
@@ -146,6 +183,20 @@ const T = {
     confirmAskCancel: "Запрос на отмену брони будет отправлен менеджеру. Продолжить?",
     contacts: "Контакты",
     error: "Произошла ошибка. Попробуйте ещё раз.",
+    tabServices: "Услуги",
+    noStay: "Услуги откроются после заселения: закажите в номер воду, фрукты, полотенца, одеяло, еду и другое.",
+    room: (n: string) => `номер ${n}`,
+    free: "бесплатно",
+    cart: "Корзина",
+    notePlaceholder: "Комментарий (например: принесите в 20:00)",
+    order: "Оформить заказ",
+    ordered: "Заказ отправлен! Когда сотрудник примет его, вы получите сообщение в боте.",
+    payNote: "Оплата на ресепшене при выезде.",
+    myOrders: "Мои заказы",
+    cancelOrder: "Отменить",
+    confirmCancelOrder: "Отменить заказ?",
+    orderStatus: { new: "⏳ Отправлен", accepted: "🛎 Принят", delivered: "✅ Доставлен", cancelled: "❌ Отменён" },
+    menuEmpty: "Отель ещё не добавил меню.",
   },
 };
 type Lang = keyof typeof T;
@@ -184,7 +235,16 @@ export function MiniApp({ botId }: { botId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [tab, setTab] = useState<"book" | "mine">("book");
+  const [tab, setTab] = useState<"book" | "mine" | "services">("book");
+  const [svc, setSvc] = useState<Services | null>(null);
+  const [cart, setCart] = useState<Record<number, number>>({});
+  const [orderNote, setOrderNote] = useState("");
+
+  // ?tab=services from the bot's "order to the room" button (sent after check-in), ?tab=mine for bookings
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("tab");
+    if (wanted === "services" || wanted === "mine") setTab(wanted);
+  }, []);
   const [step, setStep] = useState<Step>("search");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
@@ -239,12 +299,16 @@ export function MiniApp({ botId }: { botId: string }) {
       .catch((e: Error) => setFatal(e.message));
   }, [tg, call]);
 
+  const loadServices = useCallback(() => {
+    call<Services>("services/").then(setSvc).catch((e: Error) => setError(e.message));
+  }, [call]);
   const loadMine = useCallback(() => {
     call<MyBooking[]>("bookings/").then(setMine).catch((e: Error) => setError(e.message));
   }, [call]);
   useEffect(() => {
     if (tab === "mine" && tg) loadMine();
-  }, [tab, tg, loadMine]);
+    if (tab === "services" && tg) loadServices();
+  }, [tab, tg, loadMine, loadServices]);
 
   // Telegram's own back button walks back through the booking steps
   const back = useMemo(() => {
@@ -347,8 +411,8 @@ export function MiniApp({ botId }: { botId: string }) {
   const fieldStyle = { background: C.card, color: C.text };
 
   const tabs = (
-    <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl p-1" style={{ background: C.card }}>
-      {(["book", "mine"] as const).map((k) => (
+    <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl p-1" style={{ background: C.card }}>
+      {(["book", "services", "mine"] as const).map((k) => (
         <button
           key={k}
           onClick={() => {
@@ -359,7 +423,7 @@ export function MiniApp({ botId }: { botId: string }) {
           className="rounded-lg py-2 text-sm font-semibold"
           style={tab === k ? { background: C.button, color: C.buttonText } : { color: C.hint }}
         >
-          {k === "book" ? t.tabBook : t.tabMine}
+          {k === "book" ? t.tabBook : k === "services" ? t.tabServices : t.tabMine}
         </button>
       ))}
     </div>
@@ -382,8 +446,137 @@ export function MiniApp({ botId }: { botId: string }) {
       </div>
     );
 
+  const cartLines = svc ? svc.items.filter((i) => cart[i.id]) : [];
+  const cartTotal = cartLines.reduce((sum, i) => sum + i.price * cart[i.id], 0);
+  const setQty = (id: number, q: number) =>
+    setCart((c) => {
+      const next = { ...c };
+      if (q <= 0) delete next[id];
+      else next[id] = Math.min(q, 20);
+      return next;
+    });
+
+  const placeOrder = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      await call<SvcOrder>("services/order/", {
+        method: "POST",
+        body: { items: cartLines.map((i) => ({ id: i.id, quantity: cart[i.id] })), note: orderNote },
+      });
+      setCart({});
+      setOrderNote("");
+      setNotice(t.ordered);
+      haptic("success");
+      loadServices();
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelOrder = async (o: SvcOrder) => {
+    if (!window.confirm(t.confirmCancelOrder)) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await call<SvcOrder>(`services/orders/${o.id}/cancel/`, { method: "POST" });
+      loadServices();
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   let body: React.ReactNode;
-  if (tab === "mine") {
+  if (tab === "services") {
+    if (svc === null) {
+      body = <p className="pt-8 text-center text-sm" style={{ color: C.hint }}>{t.loading}</p>;
+    } else if (!svc.stay) {
+      body = <p className="pt-6 text-center text-sm" style={{ color: C.hint }}>{t.noStay}</p>;
+    } else {
+      body = (
+        <>
+          <div className="mb-3 text-sm" style={{ color: C.hint }}>
+            🛏 {t.room(svc.stay.room_number)} · {t.payNote}
+          </div>
+          {alert(notice, C.link)}
+          {svc.items.length === 0 && alert(t.menuEmpty, C.hint)}
+          {svc.categories.map((cat) => (
+            <div key={cat.value} className="mb-4">
+              <h3 className="mb-2 text-xs font-semibold uppercase" style={{ color: C.hint }}>{cat.label}</h3>
+              <div className="overflow-hidden rounded-2xl" style={{ background: C.card }}>
+                {svc.items.filter((i) => i.category === cat.value).map((i, idx) => (
+                  <div key={i.id} className="flex items-center justify-between gap-3 px-3 py-2.5"
+                    style={idx ? { borderTop: `1px solid ${C.bg}` } : undefined}>
+                    <div className="min-w-0">
+                      <div className="truncate text-[15px]">{i.name}</div>
+                      <div className="text-xs" style={{ color: C.hint }}>{i.price ? som(i.price) : t.free}</div>
+                    </div>
+                    {cart[i.id] ? (
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button className="h-8 w-8 rounded-full text-lg" style={{ background: C.bg }}
+                          onClick={() => setQty(i.id, cart[i.id] - 1)}>−</button>
+                        <span className="w-5 text-center font-semibold">{cart[i.id]}</span>
+                        <button className="h-8 w-8 rounded-full text-lg" style={{ background: C.bg }}
+                          onClick={() => setQty(i.id, cart[i.id] + 1)}>+</button>
+                      </div>
+                    ) : (
+                      <button className="shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold"
+                        style={{ background: C.button, color: C.buttonText }} onClick={() => setQty(i.id, 1)}>+</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {cartLines.length > 0 && (
+            <div className="sticky bottom-3 mt-4 rounded-2xl p-3 shadow-lg" style={{ background: C.card }}>
+              <div className="mb-2 flex justify-between text-sm font-semibold">
+                <span>{t.cart}: {cartLines.reduce((n, i) => n + cart[i.id], 0)}</span>
+                <span>{cartTotal ? som(cartTotal) : t.free}</span>
+              </div>
+              <input className={field} style={{ ...fieldStyle, background: C.bg }} placeholder={t.notePlaceholder}
+                maxLength={500} value={orderNote} onChange={(e) => setOrderNote(e.target.value)} />
+              <button disabled={busy} onClick={placeOrder} className={`${primary} mt-2`}
+                style={{ background: C.button, color: C.buttonText }}>
+                {busy ? t.sending : t.order}
+              </button>
+            </div>
+          )}
+
+          {svc.orders.length > 0 && (
+            <>
+              <h3 className="mb-2 mt-6 text-xs font-semibold uppercase" style={{ color: C.hint }}>{t.myOrders}</h3>
+              <div className="space-y-2">
+                {svc.orders.map((o) => (
+                  <div key={o.id} className="rounded-2xl p-3 text-sm" style={{ background: C.card }}>
+                    <div className="flex justify-between gap-2">
+                      <span className="font-semibold">#{o.id} · {t.orderStatus[o.status]}</span>
+                      <span>{o.total ? som(o.total) : t.free}</span>
+                    </div>
+                    <div className="mt-1 text-xs" style={{ color: C.hint }}>
+                      {o.lines.map((l) => `${l.name} × ${l.quantity}`).join(", ")}
+                    </div>
+                    {o.can_cancel && (
+                      <button disabled={busy} onClick={() => cancelOrder(o)} className="mt-2 text-xs font-semibold"
+                        style={{ color: C.danger }}>
+                        {t.cancelOrder}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      );
+    }
+  } else if (tab === "mine") {
     body = (
       <>
         {alert(notice, C.link)}

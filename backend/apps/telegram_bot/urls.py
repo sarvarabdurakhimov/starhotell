@@ -1,5 +1,7 @@
 from django.urls import path
 
+from apps.room_service import webapp as room_service_webapp
+
 from . import views, webapp
 
 app_name = 'telegram_bot'
@@ -14,4 +16,9 @@ urlpatterns = [
     path('webapp/<int:bot_id>/bookings/', webapp.MyBookingsView.as_view(), name='webapp_bookings'),
     path('webapp/<int:bot_id>/bookings/<int:pk>/<str:action>/', webapp.BookingActionView.as_view(),
          name='webapp_booking_action'),
+    # Room service for a checked-in guest
+    path('webapp/<int:bot_id>/services/', room_service_webapp.ServicesView.as_view(), name='webapp_services'),
+    path('webapp/<int:bot_id>/services/order/', room_service_webapp.PlaceOrderView.as_view(), name='webapp_order'),
+    path('webapp/<int:bot_id>/services/orders/<int:pk>/cancel/', room_service_webapp.CancelOrderView.as_view(),
+         name='webapp_order_cancel'),
 ]

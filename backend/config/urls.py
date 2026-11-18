@@ -30,6 +30,7 @@ urlpatterns = [
         path('housekeeping/', include('apps.housekeeping.urls', namespace='housekeeping')),
         path('reports/', include('apps.reports.urls', namespace='reports')),
         path('telegram/', include('apps.telegram_bot.urls', namespace='telegram_bot')),
+        path('room-service/', include('apps.room_service.urls', namespace='room_service')),
     ])),
 
     # OpenAPI Schema

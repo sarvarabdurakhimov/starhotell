@@ -75,6 +75,9 @@ class BookingCheckInView(APIView):
         except Booking.DoesNotExist:
             raise NotFound('Booking not found.')
         updated = services.transition_booking(booking, BookingStatus.CHECKED_IN, request.user)
+        if updated.telegram_chat_id:
+            from apps.room_service.services import welcome_guest
+            welcome_guest(updated)  # the bot offers room service (water, towels, food, ...)
         return Response(BookingSerializer(updated).data)
 
 

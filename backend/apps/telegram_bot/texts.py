@@ -44,6 +44,15 @@ TEXTS = {
         'confirm': "✅ Tasdiqlash",
         'webapp_offer': "Xonalarni rasmlari bilan ko'rib, ilovada qulay bron qiling:",
         'webapp_open': "🌐 Ilovada bron qilish",
+        'order_accepted': "🛎 Buyurtma #{number} qabul qilindi, tez orada xonangizga olib boriladi.",
+        'stay_welcome': (
+            "🏨 Xush kelibsiz! Siz <b>{room}-xona</b>dasiz.\n\n"
+            "Suv, meva, choy, sochiq, ko'rpa, yostiq, ovqat va boshqalarni xonangizga "
+            "ilovadan buyurtma qilishingiz mumkin."
+        ),
+        'stay_services': "🛎 Xonaga buyurtma",
+        'order_delivered': "✅ Buyurtma #{number} yetkazildi. Yoqimli dam oling!",
+        'order_cancelled': "❌ Buyurtma #{number} bekor qilindi. Savol bo'lsa, qabulxonaga murojaat qiling.",
         'edit_details': "✏️ Ism yoki telefonni o'zgartirish",
         'cancel': "❌ Bekor qilish",
         'cancelled_flow': "Bekor qilindi.",
@@ -146,6 +155,14 @@ TEXTS = {
         'confirm': "✅ Подтвердить",
         'webapp_offer': "Посмотрите номера с фото и забронируйте в приложении:",
         'webapp_open': "🌐 Бронировать в приложении",
+        'order_accepted': "🛎 Заказ #{number} принят, скоро его принесут в ваш номер.",
+        'stay_welcome': (
+            "🏨 Добро пожаловать! Ваш номер <b>{room}</b>.\n\n"
+            "Воду, фрукты, чай, полотенца, одеяло, подушку, еду и другое можно заказать в номер через приложение."
+        ),
+        'stay_services': "🛎 Заказ в номер",
+        'order_delivered': "✅ Заказ #{number} доставлен. Приятного отдыха!",
+        'order_cancelled': "❌ Заказ #{number} отменён. Если есть вопросы, обратитесь на ресепшен.",
         'edit_details': "✏️ Изменить имя или телефон",
         'cancel': "❌ Отмена",
         'cancelled_flow': "Отменено.",

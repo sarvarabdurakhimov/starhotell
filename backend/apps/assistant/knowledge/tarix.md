@@ -134,6 +134,26 @@ vazifalar bergani bo'lsin.
 `TELEGRAM_WEBAPP_URL=https://...` o'rnatilishi kerak; keyin bot sozlamasini panelda bir marta saqlash yoki
 deploy (menyu tugmasi o'rnatiladi).
 
+## 8-vazifa (2026-11-19): xonaga buyurtmalar (suv, meva, sochiq, ko'rpa, ovqat)
+
+**Vazifa:** mijoz mehmonxonaga joylashgandan keyin ilovadan suv, meva, sochiq, ko'rpa, ko'rpacha, yostiq,
+ovqat va shunga o'xshash narsalarni buyurtma qila olsin.
+
+**Nima qilindi:**
+- Yangi app `apps/room_service`: menyu (nomi, turi, narxi; 0 = bepul, yoqish/o'chirish), buyurtmalar
+  (yangi → qabul qilindi → yetkazildi yoki bekor), to'landi belgisi. Nom va narx buyurtmaga ko'chiriladi.
+- Mini App'da "Xizmatlar" bo'limi: faqat mijoz check-in qilingan paytda ochiladi (botda yoki qabulxonada
+  bron qilingan bo'lsa ham); turlar bo'yicha menyu, savatcha, izoh, buyurtmalarim, yangi buyurtmani bekor
+  qilish. To'lov qabulxonada, chiqishda.
+- Panelda "Buyurtmalar" sahifasi (boshliq, meneger, xodim): faol / yetkazilgan / bekor; qabul qilish,
+  yetkazildi, bekor, to'landi. Har 15 soniyada yangilanadi. Menyu bo'limi faqat ega va menejerga; bo'sh
+  menyuga bir bosishda standart ro'yxat qo'shiladi (narxlarni mehmonxona o'zgartiradi).
+- Ruxsatlar: buyurtmani qabulxona va tozalovchi bajaradi; moliya va auditor faqat ko'radi; menyuni ega va
+  menejer tahrirlaydi.
+- Telegram: yangi buyurtma haqida xodimlarga xabar (notify chat); holat o'zgarsa mijozga xabar; check-in
+  qilinganda mijozga "🛎 Xonaga buyurtma" tugmasi (Mini App https manzilda bo'lsa).
+- Testlar: `tests/test_room_service.py` (13 ta). Mahalliy tekshiruv: "Xizmatlar" bo'limi Edge'da ochildi.
+
 ---
 
 ## Holat (2026-11-18)
@@ -146,4 +166,5 @@ deploy (menyu tugmasi o'rnatiladi).
 - Railway cron (`expire_telegram_requests`) hali sozlanmagan.
 - 7-vazifa (Mini App) GitHub'ga push qilindi (2026-11-19); Telegram'da ishlashi uchun frontend https'da deploy qilinishi va
   `TELEGRAM_WEBAPP_URL` o'rnatilishi kerak.
+- 8-vazifa (xonaga buyurtmalar) commit qilindi.
 - Next.js xavfsizlik yangilanishi hali qilinmagan.

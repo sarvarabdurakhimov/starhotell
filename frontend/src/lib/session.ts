@@ -39,17 +39,17 @@ export const STAFF_ROLE_LABEL: Record<string, string> = {
 };
 
 export const STAFF_PAGES: Record<string, string[]> = {
-  receptionist: ["calendar", "bookings", "rooms", "guests", "housekeeping"],
-  housekeeping: ["housekeeping", "rooms"],
+  receptionist: ["calendar", "bookings", "rooms", "guests", "housekeeping", "orders"],
+  housekeeping: ["housekeeping", "orders", "rooms"],
   finance: ["calendar", "bookings"],
   auditor: ["calendar", "bookings"],
 };
 
 // Panel sub-pages each role has (matches the folders under app/boshliq and app/meneger).
 const ROLE_PAGES: Record<PanelRole, string[]> = {
-  owner: ["settings", "rooms", "bookings", "guests", "reviews", "reports"],
-  manager: ["rooms", "bookings", "housekeeping", "guests", "reviews", "reports"],
-  staff: ["calendar", "bookings", "rooms", "guests", "housekeeping"],
+  owner: ["settings", "rooms", "bookings", "guests", "reviews", "reports", "orders"],
+  manager: ["rooms", "bookings", "housekeeping", "guests", "reviews", "reports", "orders"],
+  staff: ["calendar", "bookings", "rooms", "guests", "housekeeping", "orders"],
 };
 
 // Who may create / cancel bookings and check guests in or out. The backend enforces the same rule
