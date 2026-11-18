@@ -118,7 +118,8 @@ vazifalar bergani bo'lsin.
 
 - 1-6 vazifalarning hammasi commit qilingan va GitHub'ga (`starhotell` repo, `main`) push qilingan
   (2026-11-18). Eski `origin` (`starhotel`) repoga push qilinmagan.
-- Telegram yordamchi boti hali ishga tushmagan: egasi @BotFather'dan bot tokeni va
-  platform.claude.com'dan API kalit berishi kerak (backend/.env).
+- Telegram yordamchi boti (@Claudb_bot) mahalliy kompyuterda ishga tushirildi: tokeni va egasining
+  Telegram ID'si backend/.env'da. Erkin savollarga javob berishi uchun hali `ANTHROPIC_API_KEY` kerak
+  (platform.claude.com); busiz faqat /vazifalar, /ozgarishlar, /holat ishlaydi.
 - Railway cron (`expire_telegram_requests`) hali sozlanmagan.
 - Next.js xavfsizlik yangilanishi hali qilinmagan.
