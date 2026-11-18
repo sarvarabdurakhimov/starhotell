@@ -80,6 +80,9 @@ class Command(BaseCommand):
         # Re-read on every message, so editing .env and restarting is enough
         allowed = services.allowed_chat_ids()
         if chat_id not in allowed:
+            sender = msg.get('from') or {}
+            self.stdout.write(f"not allowed: chat {chat_id} @{sender.get('username') or '-'} "
+                              f"{sender.get('first_name') or ''}".rstrip())
             hint = ("\n\nAgar bu bot sizniki bo'lsa, backend/.env fayliga quyidagini yozing va botni qayta ishga "
                     f"tushiring:\nASSISTANT_ALLOWED_CHAT_IDS={chat_id}") if not allowed else ''
             return self.reply(chat_id, f"Kechirasiz, bu bot shaxsiy. Sizning ID: {chat_id}.{hint}")
