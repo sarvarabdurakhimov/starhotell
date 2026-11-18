@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { somNumber } from "@/lib/api/helpers";
 import {
   IconAdjustments,
   IconArrowRight,
@@ -14,7 +15,7 @@ import {
   IconChevronDown,
   IconCircleCheck,
   IconCircleX,
-  IconCurrencyDollar,
+  IconCash,
   IconHelpCircle,
   IconLock,
   IconMoon,
@@ -104,8 +105,8 @@ export default function LearningLandingPage() {
     {
       name: "Mini",
       desc: "1–25 xona",
-      monthlyPrice: 49,
-      annualPrice: 39,
+      monthlyPrice: 600000,
+      annualPrice: 500000,
       features: ["25 tagacha xona", "Cheksiz bron", "Email yordam"],
       cta: "Boshlash",
       popular: false,
@@ -113,8 +114,8 @@ export default function LearningLandingPage() {
     {
       name: "Professional",
       desc: "25–150 xona",
-      monthlyPrice: 129,
-      annualPrice: 99,
+      monthlyPrice: 1600000,
+      annualPrice: 1250000,
       features: ["150 tagacha xona", "Tozalash va xodimlar", "SMS xabarnoma", "24/7 yordam"],
       cta: "14 kun bepul",
       popular: true,
@@ -122,8 +123,8 @@ export default function LearningLandingPage() {
     {
       name: "Enterprise",
       desc: "Tarmoqlar, 150+ xona",
-      monthlyPrice: 299,
-      annualPrice: 249,
+      monthlyPrice: 3750000,
+      annualPrice: 3100000,
       features: ["Cheksiz filiallar", "API integratsiya", "Ustuvor yordam"],
       cta: "Bog'lanish",
       popular: false,
@@ -567,8 +568,8 @@ export default function LearningLandingPage() {
                     </p>
 
                     <div className="mt-6 flex items-baseline gap-1">
-                      <span className="text-5xl font-black">${price}</span>
-                      <span className="text-xs text-slate-500 font-semibold">/ oy</span>
+                      <span className="text-4xl font-black">{somNumber(price)}</span>
+                      <span className="text-xs text-slate-500 font-semibold">so&apos;m / oy</span>
                     </div>
 
                     <div className="mt-8 space-y-3 pt-6 border-t border-slate-700/20">

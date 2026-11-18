@@ -5,13 +5,12 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconBan, IconBrandTelegram, IconStarFilled, IconX } from "@tabler/icons-react";
 import { apiClient } from "@/lib/api/client";
-import { apiError, BOOKING_STATUS } from "@/lib/api/helpers";
+import { apiError, BOOKING_STATUS, money } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
 import type { Booking, Guest } from "@/types";
 
 type HistoryBooking = Booking & { room_type: string; review_comment: string };
 
-const money = (v?: string | number | null) => Number(v || 0).toLocaleString();
 
 export function GuestHistoryModal({ guestId, onClose }: { guestId: number; onClose: () => void }) {
   const { hotelId, role } = usePanel();
@@ -182,7 +181,7 @@ export function GuestHistoryModal({ guestId, onClose }: { guestId: number; onClo
                       <div className="sm:text-right whitespace-nowrap">
                         <div className="font-bold">{BOOKING_STATUS[b.status] || b.status}</div>
                         <div className="font-mono text-stone-600">
-                          {money(b.total_amount)} {b.currency}
+                          {money(b.total_amount)}
                         </div>
                         {Number(b.paid_amount) > 0 && <div className="text-emerald-700">To&apos;langan: {money(b.paid_amount)}</div>}
                         {Number(b.refunded_amount) > 0 && <div className="text-rose-700">Qaytarilgan: {money(b.refunded_amount)}</div>}

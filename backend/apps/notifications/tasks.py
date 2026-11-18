@@ -12,6 +12,7 @@ def send_booking_confirmation_email(self, booking_id: int):
     """Send booking confirmation email asynchronously with retries."""
     try:
         from apps.bookings.models import Booking
+        from apps.common.money import som
         booking = Booking.objects.select_related('guest', 'hotel', 'room').get(pk=booking_id)
 
         subject = f"Booking Confirmation - {booking.reference}"
@@ -21,7 +22,7 @@ def send_booking_confirmation_email(self, booking_id: int):
             f"Booking Reference: {booking.reference}\n"
             f"Check-in: {booking.check_in}\n"
             f"Check-out: {booking.check_out}\n"
-            f"Total: {booking.total_amount} {booking.currency}\n\n"
+            f"Total: {som(booking.total_amount)}\n\n"
             f"We look forward to welcoming you!"
         )
 

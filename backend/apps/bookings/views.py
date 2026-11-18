@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import NotFound, ValidationError
 
-from apps.common.permissions import IsHotelManager, IsHotelMember
+from apps.common.permissions import IsHotelManager, HotelRoleAccess, ALL_STAFF, FRONT_DESK
 from .models import Booking, BookingStatus
 from .serializers import BookingCreateSerializer, BookingSerializer
 from . import services
@@ -13,7 +13,9 @@ from . import services
 class BookingListCreateView(generics.ListAPIView):
     """GET /api/v1/hotels/{hotel_id}/bookings/"""
     serializer_class = BookingSerializer
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    read_roles = ALL_STAFF
+    write_roles = FRONT_DESK
 
     def get_queryset(self):
         from apps.telegram_bot.services import expire_stale
@@ -37,6 +39,8 @@ class BookingListCreateView(generics.ListAPIView):
         serializer = BookingCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         d = serializer.validated_data
+        from apps.telegram_bot.services import expire_stale
+        expire_stale(hotel_id)  # a lapsed Telegram request must not block the room being booked
         booking = services.create_booking(
             hotel_id=hotel_id,
             room_id=d['room_id'],
@@ -54,14 +58,16 @@ class BookingListCreateView(generics.ListAPIView):
 class BookingDetailView(generics.RetrieveAPIView):
     """GET /api/v1/hotels/{hotel_id}/bookings/{pk}/"""
     serializer_class = BookingSerializer
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    read_roles = ALL_STAFF
 
     def get_queryset(self):
         return Booking.objects.filter(hotel_id=self.kwargs['hotel_id'])
 
 
 class BookingCheckInView(APIView):
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    write_roles = FRONT_DESK
 
     def post(self, request, hotel_id, pk):
         try:
@@ -73,7 +79,8 @@ class BookingCheckInView(APIView):
 
 
 class BookingCheckOutView(APIView):
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    write_roles = FRONT_DESK
 
     def post(self, request, hotel_id, pk):
         try:
@@ -134,7 +141,8 @@ class HotelReviewListView(APIView):
 
 
 class BookingCancelView(APIView):
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    write_roles = FRONT_DESK
 
     def post(self, request, hotel_id, pk):
         try:
@@ -186,7 +194,8 @@ class BookingCalendarView(APIView):
     All rooms plus every booking that overlaps [start, start + days), for the calendar grid.
     Cancelled and no-show bookings are left out.
     """
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    read_roles = ALL_STAFF
     MAX_DAYS = 62
 
     def get(self, request, hotel_id):
@@ -194,7 +203,9 @@ class BookingCalendarView(APIView):
         from django.utils import timezone
         from rest_framework.exceptions import ValidationError
         from apps.rooms.models import Room
+        from apps.telegram_bot.services import expire_stale
 
+        expire_stale(hotel_id)  # lapsed Telegram requests are not shown as occupying rooms
         today = timezone.localdate()
         try:
             start = date.fromisoformat(request.query_params.get('start') or str(today))

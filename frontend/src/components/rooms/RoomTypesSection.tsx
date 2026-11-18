@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconPencil, IconPhotoPlus, IconTrash, IconUsers, IconX } from "@tabler/icons-react";
 import { apiClient } from "@/lib/api/client";
-import { apiError } from "@/lib/api/helpers";
+import { apiError, money } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
 import type { RoomType } from "@/types";
 
@@ -60,7 +60,7 @@ function RoomTypeCard({ rt, canManage }: { rt: RoomType; canManage: boolean }) {
         <div>
           <h3 className="font-serif font-bold text-stone-900">{rt.name}</h3>
           <div className="text-[11px] text-stone-500 flex items-center gap-2">
-            <span className="font-mono font-bold text-stone-800">{Number(rt.base_price).toLocaleString()}</span> / tun
+            <span className="font-mono font-bold text-stone-800">{money(rt.base_price)}</span> / tun
             <span className="inline-flex items-center gap-0.5">
               <IconUsers className="w-3 h-3" /> {rt.max_occupancy}
             </span>

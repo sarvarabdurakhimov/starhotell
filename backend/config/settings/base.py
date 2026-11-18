@@ -60,6 +60,7 @@ LOCAL_APPS = [
     'apps.notifications',
     'apps.reports',
     'apps.telegram_bot',
+    'apps.assistant',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -250,6 +251,13 @@ CELERY_TIMEZONE = 'UTC'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes soft limit
+CELERY_BEAT_SCHEDULE = {
+    # Lapsed Telegram requests free their rooms and the guest is told, even with no bot traffic
+    'expire-telegram-requests': {
+        'task': 'apps.telegram_bot.tasks.expire_telegram_requests',
+        'schedule': 300.0,  # every 5 minutes
+    },
+}
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_REJECT_ON_WORKER_LOST = True

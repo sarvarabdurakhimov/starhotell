@@ -1,6 +1,8 @@
 """Hotel model — the core tenant unit of the HMS SaaS platform."""
 import zoneinfo
 from django.db import models
+
+from apps.common.money import CURRENCY, CURRENCY_CHOICES
 from django.conf import settings
 from apps.common.models import TimestampedModel
 from apps.organizations.models import Organization
@@ -29,7 +31,7 @@ class Hotel(TimestampedModel):
     postal_code = models.CharField(max_length=20, blank=True)
     country = models.CharField(max_length=100, default='Uzbekistan')
     timezone = models.CharField(max_length=64, default='Asia/Tashkent', choices=TIMEZONE_CHOICES)
-    currency = models.CharField(max_length=3, default='USD')  # ISO 4217
+    currency = models.CharField(max_length=3, default=CURRENCY, choices=CURRENCY_CHOICES, editable=False)  # always so'm
     locale = models.CharField(max_length=10, default='en-US')
     is_active = models.BooleanField(default=True, db_index=True)
     logo = models.ImageField(upload_to='hotels/logos/', blank=True, null=True)

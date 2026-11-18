@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconSearch, IconStarFilled } from "@tabler/icons-react";
 import { apiClient } from "@/lib/api/client";
-import { apiError, asList } from "@/lib/api/helpers";
+import { apiError, asList, money } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
 import { GuestHistoryModal } from "@/components/guests/GuestHistoryModal";
 import type { Guest, PaginatedResponse } from "@/types";
@@ -61,7 +61,7 @@ export default function GuestsPage() {
   const blacklistCount = guests.filter((g) => g.is_blacklisted).length;
   const filtered = guests
     .filter((g) => (filter === "regular" ? (g.stays || 0) >= 2 : filter === "blacklist" ? g.is_blacklisted : true))
-    .filter((g) => !q || [g.full_name, g.email, g.phone, g.id_number].some((v) => (v || "").toLowerCase().includes(q)))
+    .filter((g) => !q || [g.full_name, g.email, g.phone, g.id_number_hint].some((v) => (v || "").toLowerCase().includes(q)))
     .sort((a, b) =>
       sort === "stays"
         ? (b.stays || 0) - (a.stays || 0)
@@ -200,7 +200,7 @@ export default function GuestsPage() {
                   <span className="font-bold text-stone-900">{g.stays || 0}</span>
                   {(g.cancellations || 0) > 0 && <span className="text-rose-600" title="Bekor qilingan / kelmagan"> · {g.cancellations}✕</span>}
                 </td>
-                <td className="py-3 px-4 text-right font-mono font-bold text-stone-900">{Number(g.total_paid || 0).toLocaleString()}</td>
+                <td className="py-3 px-4 text-right font-mono font-bold text-stone-900">{money(g.total_paid)}</td>
                 <td className="py-3 px-4 font-mono text-stone-600">{g.last_visit || "—"}</td>
                 <td className="py-3 px-4 text-center">
                   {g.avg_rating ? (

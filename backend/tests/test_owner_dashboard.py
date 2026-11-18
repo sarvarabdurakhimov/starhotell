@@ -67,7 +67,6 @@ class TestOwnerPermissionsAndSecurity:
             category=ExpenseCategory.MAINTENANCE,
             title='HVAC compressor replacement',
             amount=Decimal('1200.00'),
-            currency='USD',
             expense_date=date.today(),
             recorded_by=owner,
             status=ExpenseStatus.APPROVED

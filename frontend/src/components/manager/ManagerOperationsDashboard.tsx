@@ -14,7 +14,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { apiClient } from "@/lib/api/client";
-import { apiError } from "@/lib/api/helpers";
+import { apiError, CURRENCY_LABEL, money, somNumber } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
 import type { Hotel, ManagerOperationsData } from "@/types";
 
@@ -185,7 +185,7 @@ export function ManagerOperationsDashboard({ hotelId, hotel }: Props) {
           kpis && kpis.overdue_tasks > 0 ? "text-rose-800" : "text-emerald-800",
           `${base}/housekeeping`
         )}
-        {kpi("Qoldiq", kpis ? `${Number(kpis.pending_payments_amount).toLocaleString()}` : "—", hotel.currency)}
+        {kpi("Qoldiq", kpis ? `${somNumber(kpis.pending_payments_amount)}` : "—", CURRENCY_LABEL)}
       </div>
 
       {/* Arrivals & departures for the chosen period */}
@@ -237,7 +237,7 @@ export function ManagerOperationsDashboard({ hotelId, hotel }: Props) {
                           {b.check_in} &rarr; {b.check_out}
                         </td>
                         <td className="py-3 px-3 font-mono font-semibold text-stone-900">
-                          {Number(b.total_amount).toLocaleString()} {hotel.currency}
+                          {money(b.total_amount)}
                         </td>
                         <td className="py-3 px-3 text-right">
                           {b.status === sec.done ? (

@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconBan, IconBrandTelegram, IconCash, IconCheck, IconFilter, IconMessage, IconPlus, IconStarFilled, IconX } from "@tabler/icons-react";
 import { apiClient } from "@/lib/api/client";
-import { apiError, asList, BOOKING_STATUS } from "@/lib/api/helpers";
+import { apiError, asList, BOOKING_STATUS, money } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
+import { isFrontDesk } from "@/lib/session";
 import { NewBookingModal } from "@/components/bookings/NewBookingModal";
 import type { Booking, PaginatedResponse } from "@/types";
 
@@ -25,7 +26,8 @@ const shortTime = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
 
 export default function BookingsPage() {
-  const { hotelId, role } = usePanel();
+  const { hotelId, role, staffRole } = usePanel();
+  const frontDesk = isFrontDesk(role, staffRole); // finance / auditor: view only
   const canApprove = role !== "staff";
   const [note, setNote] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -71,7 +73,7 @@ export default function BookingsPage() {
           : vars.kind === "reject"
           ? "So'rov rad etildi, mijozga xabar yuborildi."
           : vars.kind === "refund"
-          ? `Qaytarilgan pul qayd qilindi: ${vars.amount}.`
+          ? `Qaytarilgan pul qayd qilindi: ${money(vars.amount)}.`
           : vars.kind === "keep"
           ? "Bekor qilish so'rovi rad etildi: bron saqlandi, mijozga xabar yuborildi."
           : vars.kind === "cancel" && vars.asked
@@ -114,6 +116,7 @@ export default function BookingsPage() {
     <div className="space-y-6 font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
         <h1 className="text-2xl font-serif font-bold text-stone-900">Bronlar</h1>
+        {frontDesk && (
         <button
           onClick={() => {
             setError(null);
@@ -123,6 +126,7 @@ export default function BookingsPage() {
         >
           <IconPlus className="w-4 h-4 text-amber-400" /> Yangi bron
         </button>
+        )}
       </div>
 
       {error && <div className="p-3 rounded bg-rose-50 border border-rose-200 text-rose-800 text-xs">{error}</div>}
@@ -226,12 +230,12 @@ export default function BookingsPage() {
                   {b.check_in} &rarr; {b.check_out}
                 </td>
                 <td className="py-3 px-4 text-right font-mono font-bold text-stone-900">
-                  {Number(b.total_amount).toLocaleString()} {b.currency}
+                  {money(b.total_amount)}
                   {Number(b.paid_amount || 0) > 0 && (
                     <div className="text-[10px] font-sans font-semibold text-emerald-700">
                       {Number(b.paid_amount) >= Number(b.total_amount)
                         ? "To'langan"
-                        : `To'langan: ${Number(b.paid_amount).toLocaleString()}`}
+                        : `To'langan: ${money(b.paid_amount)}`}
                     </div>
                   )}
                 </td>
@@ -265,12 +269,12 @@ export default function BookingsPage() {
                   )}
                   {b.status === "cancelled" && Number(b.paid_amount) > Number(b.refunded_amount || 0) && (
                     <div className="mt-0.5 text-[10px] font-bold text-rose-700">
-                      Pulni qaytarish kerak: {(Number(b.paid_amount) - Number(b.refunded_amount || 0)).toLocaleString()}
+                      Pulni qaytarish kerak: {money(Number(b.paid_amount) - Number(b.refunded_amount || 0))}
                     </div>
                   )}
                   {Number(b.refunded_amount) > 0 && (
                     <div className="mt-0.5 text-[10px] font-bold text-emerald-700">
-                      Qaytarildi: {Number(b.refunded_amount).toLocaleString()}
+                      Qaytarildi: {money(b.refunded_amount)}
                     </div>
                   )}
                   {isCancelAsked(b) && (
@@ -359,7 +363,7 @@ export default function BookingsPage() {
                       <IconBan className="w-4 h-4" />
                     </button>
                   )}
-                  {b.status === "confirmed" && (
+                  {frontDesk && b.status === "confirmed" && (
                     <>
                       <button
                         disabled={action.isPending}
@@ -384,7 +388,7 @@ export default function BookingsPage() {
                       )}
                     </>
                   )}
-                  {b.status === "checked_in" && (
+                  {frontDesk && b.status === "checked_in" && (
                     <button
                       disabled={action.isPending}
                       onClick={() => action.mutate({ id: b.id, kind: "check-out" })}

@@ -1,6 +1,8 @@
 """Reservation model with explicit status transitions and audit history."""
 import uuid
 from django.db import models
+
+from apps.common.money import CURRENCY, CURRENCY_CHOICES
 from django.core.exceptions import ValidationError
 from apps.common.models import TimestampedModel
 
@@ -56,7 +58,7 @@ class Booking(TimestampedModel):
     # Price snapshot at time of booking — never recalculated retroactively
     rate_per_night = models.DecimalField(max_digits=10, decimal_places=2)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=3, default='USD')
+    currency = models.CharField(max_length=3, default=CURRENCY, choices=CURRENCY_CHOICES, editable=False)
 
     special_requests = models.TextField(blank=True)
     cancellation_reason = models.TextField(blank=True)

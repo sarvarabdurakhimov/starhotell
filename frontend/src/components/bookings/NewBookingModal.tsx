@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
-import { apiError, asList } from "@/lib/api/helpers";
+import { apiError, asList, money } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
 import type { Guest, PaginatedResponse, Room } from "@/types";
 
@@ -142,7 +142,7 @@ export function NewBookingModal({ prefill, onClose }: { prefill?: NewBookingPref
               {rooms.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.room_number}-xona
-                  {r.room_type_detail ? ` (${r.room_type_detail.name}, ${r.room_type_detail.base_price})` : ""}
+                  {r.room_type_detail ? ` (${r.room_type_detail.name}, ${money(r.room_type_detail.base_price)})` : ""}
                 </option>
               ))}
             </select>

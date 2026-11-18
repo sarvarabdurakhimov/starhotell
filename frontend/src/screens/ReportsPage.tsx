@@ -4,14 +4,14 @@ import { useState } from "react";
 import { usePanel } from "@/lib/panel-context";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
-import { BOOKING_STATUS } from "@/lib/api/helpers";
+import { BOOKING_STATUS, CURRENCY_LABEL, somNumber } from "@/lib/api/helpers";
 import type { Hotel } from "@/types";
 import {
   IconCalendar,
   IconChartBar,
   IconChartPie,
   IconCircleCheck,
-  IconCurrencyDollar,
+  IconCash,
   IconTrendingUp,
   IconUsers,
 } from "@tabler/icons-react";
@@ -106,14 +106,14 @@ export default function ReportsPage() {
               Tushum
             </span>
             <div className="w-8 h-8 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center justify-center">
-              <IconCurrencyDollar className="w-4 h-4" />
+              <IconCash className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-bold text-stone-900">
-              {Number(revenue?.total_revenue ?? 0).toLocaleString()}
+              {somNumber(revenue?.total_revenue ?? 0)}
             </span>
-            <span className="text-xs text-stone-600 font-semibold">{hotel?.currency || ""}</span>
+            <span className="text-xs text-stone-600 font-semibold">{CURRENCY_LABEL}</span>
           </div>
         </div>
 

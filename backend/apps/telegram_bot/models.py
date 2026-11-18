@@ -20,8 +20,6 @@ class BotConfig(TimestampedModel):
     # Telegram Payments provider token (BotFather → Payments → Click / Payme)
     payment_provider_token = models.CharField(max_length=200, blank=True)
     payment_provider_name = models.CharField(max_length=20, blank=True)  # click / payme
-    # Click and Payme charge in UZS. If the hotel prices in another currency, 1 unit = this many so'm.
-    uzs_rate = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     payment_hours = models.PositiveSmallIntegerField(default=2)  # time to pay after approval
 
     # Optional chat (e.g. a managers' group) that gets a message about each new request

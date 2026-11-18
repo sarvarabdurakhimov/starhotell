@@ -1,6 +1,6 @@
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError
-from apps.common.permissions import IsHotelMember
+from apps.common.permissions import HotelRoleAccess, ROOM_STAFF
 from .models import HousekeepingTask, HousekeepingStatus
 from .serializers import HousekeepingTaskSerializer
 
@@ -13,7 +13,9 @@ def _check_room_in_hotel(serializer, hotel_id):
 
 class HousekeepingTaskListCreateView(generics.ListCreateAPIView):
     serializer_class = HousekeepingTaskSerializer
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    read_roles = ROOM_STAFF
+    write_roles = ROOM_STAFF
 
     def get_queryset(self):
         return HousekeepingTask.objects.filter(
@@ -29,7 +31,9 @@ class HousekeepingTaskListCreateView(generics.ListCreateAPIView):
 
 class HousekeepingTaskDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = HousekeepingTaskSerializer
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    read_roles = ROOM_STAFF
+    write_roles = ROOM_STAFF
 
     def get_queryset(self):
         return HousekeepingTask.objects.filter(hotel_id=self.kwargs['hotel_id'])

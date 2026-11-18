@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import NotFound
 
-from apps.common.permissions import IsHotelManager, IsHotelMember
+from apps.common.permissions import IsHotelManager, HotelRoleAccess, FRONT_DESK
 from .models import Guest
 from .serializers import GuestSerializer
 
@@ -38,7 +38,9 @@ def with_history(qs):
 
 class GuestListCreateView(generics.ListCreateAPIView):
     serializer_class = GuestSerializer
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    read_roles = FRONT_DESK
+    write_roles = FRONT_DESK
 
     def get_queryset(self):
         qs = Guest.objects.filter(hotel_id=self.kwargs['hotel_id'])
@@ -60,7 +62,9 @@ class GuestListCreateView(generics.ListCreateAPIView):
 
 class GuestDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = GuestSerializer
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    read_roles = FRONT_DESK
+    write_roles = FRONT_DESK
 
     def get_queryset(self):
         return with_history(Guest.objects.filter(hotel_id=self.kwargs['hotel_id']))
@@ -68,7 +72,8 @@ class GuestDetailView(generics.RetrieveUpdateAPIView):
 
 class GuestHistoryView(APIView):
     """GET .../guests/{pk}/history/ — the guest's profile with stats, every booking, and their reviews."""
-    permission_classes = [IsHotelMember]
+    permission_classes = [HotelRoleAccess]
+    read_roles = FRONT_DESK
 
     def get(self, request, hotel_id, pk):
         from apps.bookings.models import Booking

@@ -33,7 +33,7 @@ class HotelSerializer(serializers.ModelSerializer):
             'postal_code', 'country', 'timezone', 'currency', 'locale',
             'is_active', 'star_rating', 'description', 'settings', 'created_at',
         )
-        read_only_fields = ('id', 'slug', 'created_at')
+        read_only_fields = ('id', 'slug', 'currency', 'created_at')
 
 
 class HotelCreateSerializer(serializers.ModelSerializer):
@@ -42,5 +42,5 @@ class HotelCreateSerializer(serializers.ModelSerializer):
         fields = (
             'name', 'phone', 'email', 'website', 'address_line1', 'address_line2',
             'city', 'state_province', 'postal_code', 'country', 'timezone',
-            'currency', 'locale', 'star_rating', 'description', 'organization',
+            'locale', 'star_rating', 'description', 'organization',
         )

@@ -32,6 +32,7 @@ import {
 import { apiClient } from "@/lib/api/client";
 import { apiError, money, ROOM_STATUS, TASK_STATUS } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
+import { isFrontDesk } from "@/lib/session";
 import type { Room, RoomStatus } from "@/types";
 
 interface Stay {
@@ -110,7 +111,8 @@ function whenLabel(today: string, date: string, past: string, future: string) {
 }
 
 export function RoomDetailPage() {
-  const { hotelId, base, role } = usePanel();
+  const { hotelId, base, role, staffRole } = usePanel();
+  const frontDesk = isFrontDesk(role, staffRole);
   const { roomId } = useParams<{ roomId: string }>();
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -188,8 +190,7 @@ export function RoomDetailPage() {
   const StateIcon = state.icon;
   const task = housekeeping.active_task;
   const step = task ? NEXT_TASK_STEP[task.status] : undefined;
-  const canCheckIn = !!next && !cur && daysFrom(today, next.check_in) <= 0 && room.status === "available";
-  const currency = cur?.currency || next?.currency || "USD";
+  const canCheckIn = frontDesk && !!next && !cur && daysFrom(today, next.check_in) <= 0 && room.status === "available";
   const laterArrivals = data.upcoming.filter((b) => b.id !== next?.id);
 
   const card = "bg-white border border-stone-200 rounded-lg shadow-sm p-5";
@@ -236,7 +237,7 @@ export function RoomDetailPage() {
           <div>
             <div className="text-stone-500">Narx / tun</div>
             <div className="font-mono font-bold text-lg text-stone-900">
-              {room.room_type_detail ? money(room.room_type_detail.base_price, currency) : "—"}
+              {room.room_type_detail ? money(room.room_type_detail.base_price) : "—"}
             </div>
           </div>
           <div>
@@ -312,12 +313,12 @@ export function RoomDetailPage() {
               )}
               {row("Kishilar", `${cur.num_adults} katta${cur.num_children ? `, ${cur.num_children} bola` : ""}`)}
               <div className="my-2 border-t border-stone-100" />
-              {row("Jami", money(cur.total_amount, cur.currency))}
-              {row("To'langan", <span className="text-emerald-800">{money(cur.paid_amount, cur.currency)}</span>)}
+              {row("Jami", money(cur.total_amount))}
+              {row("To'langan", <span className="text-emerald-800">{money(cur.paid_amount)}</span>)}
               {row(
                 "Qoldiq",
                 <span className={Number(cur.balance_due) > 0 ? "text-rose-700" : "text-emerald-800"}>
-                  {money(cur.balance_due, cur.currency)}
+                  {money(cur.balance_due)}
                 </span>
               )}
               {cur.special_requests && (
@@ -325,6 +326,7 @@ export function RoomDetailPage() {
                   <IconMessage className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {cur.special_requests}
                 </div>
               )}
+              {frontDesk && (
               <button
                 disabled={busy}
                 onClick={() => stayAction.mutate({ id: cur.id, kind: "check-out" })}
@@ -332,6 +334,7 @@ export function RoomDetailPage() {
               >
                 <IconDoorExit className="w-4 h-4" /> Check-out
               </button>
+              )}
             </>
           )}
         </div>
@@ -369,7 +372,7 @@ export function RoomDetailPage() {
                     <IconPhone className="w-3 h-3" /> {next.guest_phone}
                   </a>
                 )}
-              {row("Summa", money(next.total_amount, next.currency))}
+              {row("Summa", money(next.total_amount))}
               {row("Bron", <span className="font-mono">{next.reference}</span>)}
               {next.special_requests && (
                 <div className="mt-3 p-2.5 rounded bg-amber-50 border border-amber-200 text-[11px] text-amber-950 flex gap-1.5">
@@ -489,7 +492,7 @@ export function RoomDetailPage() {
         {[
           ["Bandlik (30 kun)", `${stats.occupancy_30d}%`],
           ["Sotilgan tunlar (30 kun)", stats.nights_30d],
-          ["Tushum (30 kun)", money(stats.revenue_30d, currency)],
+          ["Tushum (30 kun)", money(stats.revenue_30d)],
           ["Jami yashaganlar", stats.total_stays],
         ].map(([label, value]) => (
           <div key={label as string} className="bg-white p-4 rounded border border-stone-200 shadow-sm">
@@ -534,7 +537,7 @@ export function RoomDetailPage() {
                     <td className="py-2.5 pr-3 text-stone-600 inline-flex items-center gap-1">
                       <IconClock className="w-3 h-3" /> {dt(b.actual_check_out)}
                     </td>
-                    <td className="py-2.5 text-right font-mono font-semibold">{money(b.total_amount, b.currency)}</td>
+                    <td className="py-2.5 text-right font-mono font-semibold">{money(b.total_amount)}</td>
                   </tr>
                 ))}
               </tbody>

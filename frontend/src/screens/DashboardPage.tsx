@@ -6,6 +6,7 @@ import { usePanel } from "@/lib/panel-context";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { apiClient } from "@/lib/api/client";
+import { CURRENCY_LABEL, money, somNumber } from "@/lib/api/helpers";
 import { Hotel, ExecutiveReportData } from "@/types";
 import { ManagerOperationsDashboard } from "@/components/manager/ManagerOperationsDashboard";
 import {
@@ -19,7 +20,7 @@ import {
   IconChevronRight,
   IconCircleCheck,
   IconClock,
-  IconCurrencyDollar,
+  IconCash,
   IconDownload,
   IconFilter,
   IconLogout,
@@ -56,7 +57,7 @@ export default function HotelDashboardPage() {
     },
   });
 
-  const hotel = hotelData || { id: Number(hotelId), name: "", currency: "USD" };
+  const hotel = hotelData || { id: Number(hotelId), name: "", currency: "UZS" };
 
   // 2. Fetch Executive Dashboard KPIs & Financials
   const {
@@ -118,7 +119,7 @@ export default function HotelDashboardPage() {
     today_departures: 0,
   };
 
-  const currency = hotel.currency || "USD";
+  const currency = CURRENCY_LABEL; // so'm only
 
   return (
     <div className="space-y-6 pb-12">
@@ -229,7 +230,7 @@ export default function HotelDashboardPage() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1.5">
-            <IconCurrencyDollar className="w-3.5 h-3.5 text-amber-600" /> Moliya
+            <IconCash className="w-3.5 h-3.5 text-amber-600" /> Moliya
           </h2>
           <span className="text-[11px] text-stone-400 font-mono">
             {currency}
@@ -244,7 +245,7 @@ export default function HotelDashboardPage() {
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl font-serif font-bold text-stone-900">
-                {Number(kpis.today_revenue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {somNumber(kpis.today_revenue)}
               </span>
               <span className="text-xs font-semibold text-stone-500">{currency}</span>
             </div>
@@ -257,12 +258,12 @@ export default function HotelDashboardPage() {
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl font-serif font-bold text-stone-900">
-                {Number(kpis.period_settled_revenue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {somNumber(kpis.period_settled_revenue)}
               </span>
               <span className="text-xs font-semibold text-stone-500">{currency}</span>
             </div>
             <div className="mt-2 text-[11px] text-stone-500">
-              Bronlar: {Number(kpis.period_booking_value).toLocaleString()} {currency}
+              Bronlar: {money(kpis.period_booking_value)}
             </div>
           </div>
 
@@ -273,12 +274,12 @@ export default function HotelDashboardPage() {
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl font-serif font-bold text-rose-800">
-                -{Number(kpis.recorded_expenses).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                -{somNumber(kpis.recorded_expenses)}
               </span>
               <span className="text-xs font-semibold text-stone-500">{currency}</span>
             </div>
             <div className="mt-2 text-[11px] text-stone-500 flex items-center justify-between">
-              <span>Qaytarish: {Number(kpis.refunds).toLocaleString()} {currency}</span>
+              <span>Qaytarish: {money(kpis.refunds)}</span>
             </div>
           </div>
 
@@ -289,7 +290,7 @@ export default function HotelDashboardPage() {
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl font-serif font-bold text-white">
-                {Number(kpis.estimated_profit).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {somNumber(kpis.estimated_profit)}
               </span>
               <span className="text-xs font-semibold text-stone-400">{currency}</span>
             </div>
@@ -347,7 +348,7 @@ export default function HotelDashboardPage() {
           <div className="bg-white p-4 rounded border border-stone-200 shadow-sm">
             <span className="text-[11px] text-stone-500 font-bold uppercase block">Qoldiq</span>
             <div className="text-xl font-serif font-bold text-amber-900 mt-1">
-              {Number(kpis.outstanding_balance).toLocaleString()} {currency}
+              {money(kpis.outstanding_balance)}
             </div>
           </div>
         </div>
@@ -379,13 +380,13 @@ export default function HotelDashboardPage() {
                     <tr key={idx} className="hover:bg-stone-50 transition">
                       <td className="py-2.5 px-3 font-mono text-stone-900">{t.date}</td>
                       <td className="py-2.5 px-3 font-bold text-emerald-800">
-                        +{t.revenue.toLocaleString()} {currency}
+                        +{money(t.revenue)}
                       </td>
                       <td className="py-2.5 px-3 font-bold text-rose-800">
-                        -{t.expenses.toLocaleString()} {currency}
+                        -{money(t.expenses)}
                       </td>
                       <td className="py-2.5 px-3 font-bold text-stone-900">
-                        {t.profit.toLocaleString()} {currency}
+                        {money(t.profit)}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-semibold text-stone-600">
                         {margin}%

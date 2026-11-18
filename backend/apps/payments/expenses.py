@@ -1,6 +1,8 @@
 """Financial and operating expense tracking with traceable reversals and approvals."""
 from decimal import Decimal
 from django.db import models
+
+from apps.common.money import CURRENCY, CURRENCY_CHOICES
 from django.conf import settings
 from apps.common.models import TimestampedModel
 
@@ -43,7 +45,7 @@ class Expense(TimestampedModel):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=3, default='USD')
+    currency = models.CharField(max_length=3, default=CURRENCY, choices=CURRENCY_CHOICES, editable=False)
     expense_date = models.DateField(db_index=True)
 
     status = models.CharField(

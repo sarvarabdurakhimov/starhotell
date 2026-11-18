@@ -70,7 +70,7 @@ services:
       dockerfile: Dockerfile
     container_name: hms_celery_worker
     restart: unless-stopped
-    command: celery -A config worker --loglevel=info
+    command: celery -A config worker -B --loglevel=info  # -B: also runs the beat schedule (one worker only)
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
       DJANGO_SECRET_KEY: dev-insecure-secret-key-change-in-prod

@@ -14,8 +14,9 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { apiClient } from "@/lib/api/client";
-import { apiError, asList, ROOM_STATUS } from "@/lib/api/helpers";
+import { apiError, asList, money, ROOM_STATUS } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
+import { isFrontDesk } from "@/lib/session";
 import { RoomTypesSection } from "@/components/rooms/RoomTypesSection";
 import type { Booking, PaginatedResponse, Room, RoomStatus, RoomType } from "@/types";
 
@@ -33,7 +34,7 @@ export default function RoomsPage() {
   const { hotelId, base, role, staffRole } = usePanel();
   // Staff can view rooms; changing rooms needs a manager (backend rule). Reception still does check-out.
   const canManage = role !== "staff";
-  const canCheckOut = canManage || staffRole === "receptionist";
+  const canCheckOut = isFrontDesk(role, staffRole);
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState<string | null>(null);
@@ -226,7 +227,7 @@ export default function RoomsPage() {
                   {room.room_type_detail && (
                     <div className="flex justify-between">
                       <span className="text-stone-500">Kunlik:</span>
-                      <span className="font-mono font-bold text-stone-900">{room.room_type_detail.base_price}</span>
+                      <span className="font-mono font-bold text-stone-900">{money(room.room_type_detail.base_price)}</span>
                     </div>
                   )}
                   {stay && (
@@ -335,7 +336,7 @@ export default function RoomsPage() {
                   <option value="">— Tanlang —</option>
                   {roomTypes.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} ({t.base_price})
+                      {t.name} ({money(t.base_price)})
                     </option>
                   ))}
                 </select>
@@ -393,10 +394,10 @@ export default function RoomsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-stone-700 uppercase mb-1">Narx / tun *</label>
+                  <label className="block font-bold text-stone-700 uppercase mb-1">Narx / tun (so&apos;m) *</label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="1000"
                     min="0"
                     required
                     value={typeForm.base_price}

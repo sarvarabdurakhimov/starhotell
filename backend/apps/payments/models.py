@@ -1,6 +1,8 @@
 """Payment records with idempotency and audit trail. No raw card data stored."""
 import uuid
 from django.db import models
+
+from apps.common.money import CURRENCY, CURRENCY_CHOICES
 from apps.common.models import TimestampedModel
 
 
@@ -25,7 +27,7 @@ class Payment(TimestampedModel):
     status = models.CharField(max_length=30, choices=PaymentStatus.choices, default=PaymentStatus.PENDING, db_index=True)
 
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=3, default='USD')
+    currency = models.CharField(max_length=3, default=CURRENCY, choices=CURRENCY_CHOICES, editable=False)
     refunded_amount = models.DecimalField(max_digits=12, decimal_places=2, default='0.00')
 
     provider = models.CharField(max_length=50, default='stripe')

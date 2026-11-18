@@ -26,10 +26,8 @@ interface BotInfo {
   payment_provider_name?: string;
   payment_token_hint?: string;
   payment_test_mode?: boolean;
-  uzs_rate?: string | null;
   payment_hours?: number;
   notify_chat_id?: string;
-  hotel_currency: string;
   mode: "webhook" | "polling";
   warning?: string | null;
 }
@@ -47,7 +45,6 @@ export function TelegramBotSettings() {
     is_active: true,
     payment_provider_name: "",
     payment_provider_token: "",
-    uzs_rate: "",
     payment_hours: "2",
     notify_chat_id: "",
   });
@@ -65,7 +62,6 @@ export function TelegramBotSettings() {
       payment_provider_token: "",
       is_active: bot.is_active ?? true,
       payment_provider_name: bot.payment_provider_name || "",
-      uzs_rate: bot.uzs_rate ? String(Number(bot.uzs_rate)) : "",
       payment_hours: String(bot.payment_hours ?? 2),
       notify_chat_id: bot.notify_chat_id || "",
     }));
@@ -94,8 +90,7 @@ export function TelegramBotSettings() {
 
   if (isLoading || !bot) return <p className="text-xs text-stone-400">Yuklanmoqda...</p>;
 
-  const needsRate = bot.hotel_currency.toUpperCase() !== "UZS";
-  const paymentsOn = !!form.payment_provider_name && (!!form.payment_provider_token || !!bot.payment_token_hint) && (!needsRate || !!form.uzs_rate);
+  const paymentsOn = !!form.payment_provider_name && (!!form.payment_provider_token || !!bot.payment_token_hint);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -206,20 +201,6 @@ export function TelegramBotSettings() {
                 className={`${input} font-mono`}
               />
             </div>
-            {needsRate && (
-              <div>
-                <label className={label}>1 {bot.hotel_currency} = necha so&apos;m *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="1"
-                  value={form.uzs_rate}
-                  onChange={(e) => setForm({ ...form, uzs_rate: e.target.value })}
-                  placeholder="12800"
-                  className={input}
-                />
-              </div>
-            )}
             <div>
               <label className={label}>To&apos;lov muddati (soat)</label>
               <input
@@ -235,7 +216,7 @@ export function TelegramBotSettings() {
           <p className={`text-[11px] ${paymentsOn ? "text-emerald-800" : "text-amber-800"}`}>
             {paymentsOn
               ? "Menejer tasdiqlagach mijozga to'lov yuboriladi. Muddat ichida to'lanmasa, bron bekor bo'ladi."
-              : `To'lov sozlanmagan: menejer tasdiqlagan bron to'lovsiz tasdiqlanadi.${needsRate ? " Click/Payme so'mda ishlaydi, shuning uchun kurs ham kerak." : ""}`}
+              : `To'lov sozlanmagan: menejer tasdiqlagan bron to'lovsiz tasdiqlanadi.`}
           </p>
         </section>
 

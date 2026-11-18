@@ -2,7 +2,7 @@
 import json
 import logging
 import secrets
-from decimal import Decimal, InvalidOperation
+
 
 from django.conf import settings
 from django.shortcuts import get_object_or_404
@@ -43,10 +43,10 @@ def _mask(value: str) -> str:
     return f'••••{value[-4:]}' if value else ''
 
 
-def _payload(bot: BotConfig, hotel_currency: str):
+def _payload(bot: BotConfig):
     mode = 'webhook' if settings.PUBLIC_API_URL else 'polling'
     if not bot:
-        return {'configured': False, 'mode': mode, 'hotel_currency': hotel_currency}
+        return {'configured': False, 'mode': mode}
     return {
         'configured': True,
         'bot_username': bot.bot_username,
@@ -55,10 +55,8 @@ def _payload(bot: BotConfig, hotel_currency: str):
         'payment_provider_name': bot.payment_provider_name,
         'payment_token_hint': _mask(bot.payment_provider_token),
         'payment_test_mode': ':TEST:' in bot.payment_provider_token,
-        'uzs_rate': bot.uzs_rate,
         'payment_hours': bot.payment_hours,
         'notify_chat_id': bot.notify_chat_id,
-        'hotel_currency': hotel_currency,
         'mode': mode,
     }
 
@@ -70,7 +68,7 @@ class BotConfigView(APIView):
     def get(self, request, hotel_id):
         from apps.hotels.models import Hotel
         hotel = get_object_or_404(Hotel, pk=hotel_id)
-        return Response(_payload(BotConfig.objects.filter(hotel=hotel).first(), hotel.currency))
+        return Response(_payload(BotConfig.objects.filter(hotel=hotel).first()))
 
     def put(self, request, hotel_id):
         from apps.hotels.models import Hotel
@@ -95,17 +93,6 @@ class BotConfigView(APIView):
         provider = (d.get('payment_provider_name') or '').strip().lower()
         if provider and provider not in ('click', 'payme'):
             errors['payment_provider_name'] = ['Click yoki Payme tanlang.']
-
-        rate = d.get('uzs_rate')
-        if rate in ('', None):
-            rate = None
-        else:
-            try:
-                rate = Decimal(str(rate))
-                if rate <= 0:
-                    raise InvalidOperation
-            except InvalidOperation:
-                errors['uzs_rate'] = ["Kurs musbat son bo'lishi kerak."]
 
         try:
             hours = int(d.get('payment_hours') or 2)
@@ -132,7 +119,6 @@ class BotConfigView(APIView):
         if d.get('clear_payment_token'):
             bot.payment_provider_token = ''
         bot.payment_provider_name = provider
-        bot.uzs_rate = rate
         bot.payment_hours = hours
         bot.notify_chat_id = str(d.get('notify_chat_id') or '').strip()
         bot.save()
@@ -142,7 +128,7 @@ class BotConfigView(APIView):
             configure_transport(bot)
         except TelegramError as exc:
             warning = f"Telegram sozlamasi o'rnatilmadi: {exc}"
-        return Response({**_payload(bot, hotel.currency), 'warning': warning})
+        return Response({**_payload(bot), 'warning': warning})
 
     def delete(self, request, hotel_id):
         bot = BotConfig.objects.filter(hotel_id=hotel_id).first()

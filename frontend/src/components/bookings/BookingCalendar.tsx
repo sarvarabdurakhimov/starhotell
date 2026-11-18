@@ -19,6 +19,7 @@ import {
 import { apiClient } from "@/lib/api/client";
 import { apiError, money } from "@/lib/api/helpers";
 import { usePanel } from "@/lib/panel-context";
+import { isFrontDesk } from "@/lib/session";
 import { NewBookingModal, type NewBookingPrefill } from "@/components/bookings/NewBookingModal";
 
 interface CalRoom {
@@ -105,7 +106,8 @@ const ROOM_DOT: Record<string, string> = {
 };
 
 export function BookingCalendar() {
-  const { hotelId, base } = usePanel();
+  const { hotelId, base, role, staffRole } = usePanel();
+  const frontDesk = isFrontDesk(role, staffRole); // finance / auditor: view only
   const queryClient = useQueryClient();
   const [days, setDays] = useState(14);
   const [start, setStart] = useState(() => addDays(localToday(), -2));
@@ -164,6 +166,7 @@ export function BookingCalendar() {
   }, [rooms]);
 
   const openNew = (roomId: number, date: string) => {
+    if (!frontDesk) return;
     setError(null);
     setSelected(null);
     setNewBooking({ room_id: roomId, check_in: date });
@@ -388,7 +391,7 @@ export function BookingCalendar() {
                 ["Xona", rooms.find((r) => r.id === selected.room)?.room_number || "—"],
                 ["Muddat", `${selected.check_in} → ${selected.check_out} (${selected.nights} tun)`],
                 ["Kishilar", `${selected.num_adults} katta${selected.num_children ? `, ${selected.num_children} bola` : ""}`],
-                ["Summa", money(selected.total_amount, selected.currency)],
+                ["Summa", money(selected.total_amount)],
                 ["Bron", selected.reference],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3">
@@ -413,7 +416,7 @@ export function BookingCalendar() {
               </div>
             )}
             <div className="mt-5 pt-4 border-t border-stone-200 flex flex-wrap items-center gap-2">
-              {selected.status === "confirmed" && selected.check_in <= today && (
+              {frontDesk && selected.status === "confirmed" && selected.check_in <= today && (
                 <button
                   disabled={stayAction.isPending}
                   onClick={() => stayAction.mutate({ id: selected.id, kind: "check-in" })}
@@ -422,7 +425,7 @@ export function BookingCalendar() {
                   <IconDoorEnter className="w-4 h-4" /> Check-in
                 </button>
               )}
-              {selected.status === "checked_in" && (
+              {frontDesk && selected.status === "checked_in" && (
                 <button
                   disabled={stayAction.isPending}
                   onClick={() => stayAction.mutate({ id: selected.id, kind: "check-out" })}
@@ -431,7 +434,7 @@ export function BookingCalendar() {
                   <IconDoorExit className="w-4 h-4" /> Check-out
                 </button>
               )}
-              {(selected.status === "confirmed" || selected.status === "pending") && (
+              {frontDesk && (selected.status === "confirmed" || selected.status === "pending") && (
                 <button
                   disabled={stayAction.isPending}
                   onClick={() => {

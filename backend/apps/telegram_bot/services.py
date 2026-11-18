@@ -19,6 +19,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.bookings.models import Booking, BookingSource, BookingStatus
 from apps.bookings.services import create_booking, transition_booking
+from apps.common.money import som
 from apps.rooms.models import Room, RoomStatus, RoomType
 
 from .api import TelegramAPI, TelegramError
@@ -37,26 +38,13 @@ def fmt_date(d: date) -> str:
     return d.strftime('%d.%m.%Y')
 
 
-def _group(n: Decimal, decimals: int) -> str:
-    return f'{n:,.{decimals}f}'.replace(',', ' ')
-
-
-def uzs_amount(bot: BotConfig, amount: Decimal):
-    """Amount in whole so'm, or None if the hotel prices in another currency and no rate is set."""
-    if bot.hotel.currency.upper() == 'UZS':
-        return int(Decimal(amount).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
-    if bot.uzs_rate:
-        return int((Decimal(amount) * bot.uzs_rate).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
-    return None
+def uzs_amount(bot: BotConfig, amount: Decimal) -> int:
+    """Amount in whole so'm (all prices are in so'm)."""
+    return int(Decimal(amount).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
 
 
 def price_text(bot: BotConfig, amount: Decimal) -> str:
-    cur = bot.hotel.currency.upper()
-    if cur == 'UZS':
-        return f"{_group(Decimal(amount), 0)} so'm"
-    text = f'{_group(Decimal(amount), 2)} {cur}'
-    uzs = uzs_amount(bot, amount)
-    return f"{text} (≈ {_group(Decimal(uzs), 0)} so'm)" if uzs is not None else text
+    return som(amount)
 
 
 def local_dt(bot: BotConfig, dt) -> str:
@@ -75,7 +63,7 @@ def hotel_today(bot: BotConfig) -> date:
 
 
 def payments_enabled(bot: BotConfig) -> bool:
-    return bool(bot.payment_provider_token) and (bot.hotel.currency.upper() == 'UZS' or bool(bot.uzs_rate))
+    return bool(bot.payment_provider_token)
 
 
 # ── messaging ───────────────────────────────────────────────────────────────
@@ -141,7 +129,8 @@ def find_guest_by_phone(hotel_id: int, phone: str):
     tail = _digits(phone)[-9:]
     if len(tail) < 7:
         return None
-    candidates = Guest.objects.filter(hotel_id=hotel_id, phone__contains=tail[-2:])  # "45-67" style: only the last 2 digits are surely adjacent.order_by('-updated_at')
+    # Prefilter on the last 2 digits only: in "45-67" style numbers just those are surely adjacent
+    candidates = Guest.objects.filter(hotel_id=hotel_id, phone__contains=tail[-2:]).order_by('-updated_at')
     return next((g for g in candidates if _digits(g.phone)[-9:] == tail), None)
 
 
@@ -350,24 +339,37 @@ def request_cancel(booking: Booking):
     logger.info('Booking %s: guest asked to cancel', booking.reference)
 
 
+def _expire_one(booking_id: int, reason: str, note: str):
+    """Cancel one lapsed request. Safe to run from several processes at once (web, bot, cron):
+    the row is locked and re-checked, so a request is cancelled - and the guest told - only once."""
+    with transaction.atomic():
+        b = (Booking.objects.select_for_update().select_related('telegram_chat__bot', 'room')
+             .filter(pk=booking_id, status=BookingStatus.PENDING).first())
+        if not b:
+            return None  # already handled elsewhere
+        b.cancellation_reason = reason
+        b.save(update_fields=['cancellation_reason', 'updated_at'])
+        transition_booking(b, BookingStatus.CANCELLED, None, note)
+    return b
+
+
 def expire_stale(hotel_id=None) -> int:
-    """Cancel Telegram requests whose time to pay ran out, or whose arrival day has passed unanswered."""
+    """Cancel Telegram requests whose time to pay ran out, or whose arrival day has passed unanswered.
+    Runs on every bot update, when the panel lists bookings or creates one, and on a schedule
+    (manage.py expire_telegram_requests / Celery beat), so a lapsed request never keeps a room."""
     now = timezone.now()
     qs = Booking.objects.filter(source=BookingSource.TELEGRAM, status=BookingStatus.PENDING)
     if hotel_id:
         qs = qs.filter(hotel_id=hotel_id)
     count = 0
-    for b in qs.filter(payment_due_at__lt=now).select_related('telegram_chat__bot'):
-        b.cancellation_reason = 'Payment time expired.'
-        b.save(update_fields=['cancellation_reason', 'updated_at'])
-        transition_booking(b, BookingStatus.CANCELLED, None, 'Payment time expired.')
-        notify_guest(b, 'expired')
-        count += 1
-    for b in qs.filter(approved_at__isnull=True, check_in__lt=timezone.localdate()):
-        b.cancellation_reason = 'Not answered before arrival date.'
-        b.save(update_fields=['cancellation_reason', 'updated_at'])
-        transition_booking(b, BookingStatus.CANCELLED, None, 'Request expired.')
-        count += 1
+    for pk in list(qs.filter(payment_due_at__lt=now).values_list('pk', flat=True)):
+        b = _expire_one(pk, 'Payment time expired.', 'Payment time expired.')
+        if b:
+            notify_guest(b, 'expired')
+            count += 1
+    for pk in list(qs.filter(approved_at__isnull=True, check_in__lt=timezone.localdate()).values_list('pk', flat=True)):
+        if _expire_one(pk, 'Not answered before arrival date.', 'Request expired.'):
+            count += 1
     return count
 
 
@@ -392,7 +394,7 @@ def payable(booking: Booking, bot: BotConfig, amount_tiyin=None) -> bool:
     if booking.payment_due_at and booking.payment_due_at < timezone.now():
         return False
     uzs = uzs_amount(bot, booking.total_amount)
-    return uzs is not None and (amount_tiyin is None or amount_tiyin == uzs * 100)
+    return amount_tiyin is None or amount_tiyin == uzs * 100
 
 
 def handle_pre_checkout(bot: BotConfig, query: dict):

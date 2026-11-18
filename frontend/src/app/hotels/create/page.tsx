@@ -17,7 +17,6 @@ export default function CreateHotelPage() {
     name: "",
     city: "Tashkent",
     country: "Uzbekistan",
-    currency: "USD",
     timezone: "Asia/Tashkent",
     address_line1: "",
     phone: "",
@@ -124,17 +123,11 @@ export default function CreateHotelPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Currency
+                Valyuta
               </label>
-              <select
-                value={formData.currency}
-                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
-              >
-                <option value="USD">USD ($)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="UZS">UZS (so'm)</option>
-              </select>
+              <div className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600">
+                O&apos;zbek so&apos;mi (UZS)
+              </div>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">

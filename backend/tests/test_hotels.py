@@ -22,6 +22,7 @@ class TestHotelManagement:
         assert response.status_code == status.HTTP_201_CREATED
 
         hotel = Hotel.objects.get(name='Silk Road Hotel')
+        assert hotel.currency == 'UZS'  # a client-sent currency is ignored: so'm only
         membership = HotelMembership.objects.get(hotel=hotel, user=user)
         assert membership.role == HotelRole.OWNER
         assert membership.is_active is True

@@ -43,7 +43,18 @@ export const TASK_STATUS: Record<string, string> = {
   inspected: "Tayyor",
 };
 
-export function money(value: string | number | undefined, currency = "USD"): string {
-  const n = Number(value || 0);
-  return `${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+// All money in the system is Uzbek so'm.
+export const CURRENCY_LABEL = "so'm";
+
+/** 1250000 -> "1 250 000" (whole so'm, space-grouped; same output on server and browser). */
+export function somNumber(value: string | number | null | undefined): string {
+  const n = Math.round(Number(value || 0));
+  const s = String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return n < 0 ? `-${s}` : s;
+}
+
+/** 1250000 -> "1 250 000 so'm". The second argument is ignored: kept so old call sites still compile. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function money(value: string | number | null | undefined, _currency?: string): string {
+  return `${somNumber(value)} ${CURRENCY_LABEL}`;
 }

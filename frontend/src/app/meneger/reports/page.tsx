@@ -1,1 +1,1 @@
-export { default } from "@/app/hotels/[hotelId]/reports/page";
+export { default } from "@/screens/ReportsPage";

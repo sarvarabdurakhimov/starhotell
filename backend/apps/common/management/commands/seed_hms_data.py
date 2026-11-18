@@ -67,7 +67,6 @@ class Command(BaseCommand):
                 'email': 'info@silkroadpalace.uz',
                 'city': 'Samarkand',
                 'country': 'Uzbekistan',
-                'currency': 'USD',
                 'timezone': 'Asia/Tashkent',
                 'star_rating': 5,
                 'address_line1': 'Registan Avenue 12',
@@ -89,7 +88,7 @@ class Command(BaseCommand):
             hotel=hotel,
             name='Deluxe King Suite',
             defaults={
-                'base_price': Decimal('180.00'),
+                'base_price': Decimal('2250000.00'),
                 'max_occupancy': 2,
                 'description': 'Spacious king suite with panoramic views of ancient minarets.',
                 'amenities': ['King Bed', 'Balcony', 'Minibar', 'High-speed WiFi', 'Espresso Machine'],
@@ -100,7 +99,7 @@ class Command(BaseCommand):
             hotel=hotel,
             name='Standard Twin Room',
             defaults={
-                'base_price': Decimal('95.00'),
+                'base_price': Decimal('1200000.00'),
                 'max_occupancy': 2,
                 'description': 'Comfortable twin room suitable for business travelers.',
                 'amenities': ['Twin Beds', 'Work Desk', 'Ensuite Bathroom', 'High-speed WiFi'],
@@ -166,7 +165,6 @@ class Command(BaseCommand):
                 'num_adults': 2,
                 'rate_per_night': deluxe.base_price,
                 'total_amount': deluxe.base_price * 4,
-                'currency': 'USD',
                 'created_by': manager,
             }
         )
@@ -177,7 +175,6 @@ class Command(BaseCommand):
             hotel=hotel,
             defaults={
                 'amount': b1.total_amount,
-                'currency': 'USD',
                 'status': PaymentStatus.SUCCEEDED,
                 'provider': 'stripe',
                 'provider_transaction_id': 'ch_demo_123456789',

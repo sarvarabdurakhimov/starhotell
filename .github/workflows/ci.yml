@@ -1,4 +1,4 @@
-name: CloudStay HMS CI
+name: StarHotel CI
 
 on:
   push:

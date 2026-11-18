@@ -15,7 +15,7 @@ import {
   IconCheck,
   IconCircle,
   IconCircleCheck,
-  IconCurrencyDollar,
+  IconCash,
   IconDeviceFloppy,
   IconEye,
   IconEyeOff,

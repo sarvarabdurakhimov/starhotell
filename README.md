@@ -1,6 +1,6 @@
 # StarHotel — Multi-Tenant Hotel Management SaaS Platform
 
-A production-ready, scalable, multi-tenant Hotel Management System (HMS) built with **Django 5.2 LTS**, **Django REST Framework**, **Next.js 15 (App Router)**, **PostgreSQL 17**, and **Redis/Celery**.
+A production-ready, scalable, multi-tenant Hotel Management System (HMS) built with **Django 5.2 LTS**, **Django REST Framework**, **Next.js 16 (App Router)**, **PostgreSQL 17**, and **Redis/Celery**.
 
 Designed to manage from independent boutique hotels to hotel chains exceeding 500 properties with strict tenant isolation, double-booking prevention, role-based access control, and asynchronous task execution.
 
@@ -12,9 +12,11 @@ Designed to manage from independent boutique hotels to hotel chains exceeding 50
 | :--- | :--- | :--- |
 | **Backend** | Python 3.13 / Django 5.2 LTS | Modular monolith with clean domain apps |
 | **API** | Django REST Framework | Versioned REST API (`/api/v1/`), OpenAPI via `drf-spectacular` |
-| **Frontend** | Next.js 15 / React 19 / TypeScript / Tailwind | App Router, Server/Client components, TanStack Query |
+| **Frontend** | Next.js 16 / React 19 / TypeScript / Tailwind | App Router, Server/Client components, TanStack Query |
 | **Database** | PostgreSQL 17 + `psycopg 3` | Authoritative persistence, `SELECT FOR UPDATE` locking |
-| **Cache & Queue** | Redis 7 + Celery 5.4 | Asynchronous email dispatch, caching, rate limiting |
+| **Cache & Queue** | Redis 7 + Celery 5.4 | Asynchronous email dispatch, scheduled jobs (beat), caching |
+| **Guest channel** | Telegram bot (per hotel) | Booking requests, Click/Payme payments, reviews |
+| **Currency** | Uzbek so'm (UZS) only | All prices, bookings, payments and reports are in so'm |
 | **Security** | HttpOnly Cookies + JWT + CSRF | Cross-tenant isolation filters, token blacklisting |
 | **Infrastructure** | Docker & Docker Compose | Multi-container composition with health checks |
 
@@ -36,14 +38,17 @@ Designed to manage from independent boutique hotels to hotel chains exceeding 50
 │   │   ├── housekeeping/          # Task allocation & cleaning statuses
 │   │   ├── notifications/         # Celery background dispatch
 │   │   ├── reports/               # Occupancy & revenue analytics
+│   │   ├── telegram_bot/          # Per-hotel booking bot (webhook or long polling)
 │   │   └── common/                # Permissions, pagination, middleware
 │   ├── config/                    # Django base/dev/prod settings, WSGI/ASGI
 │   ├── tests/                     # Pytest suite with cross-tenant security tests
 │   └── requirements/              # base.txt, development.txt, production.txt
 │
-├── frontend/                      # Next.js 15 App Router
+├── frontend/                      # Next.js 16 App Router
 │   └── src/
-│       ├── app/                   # (auth), dashboard, hotels/[hotelId]/*
+│       ├── app/                   # (auth), dashboard, role panels: boshliq/ (owner), meneger/ (manager), xodim/ (staff)
+│       │                          #   hotels/[hotelId]/* only forwards old links to the right panel
+│       ├── screens/               # Panel pages shared by the role panels
 │       ├── components/            # Layouts, navigation, sidebar, providers
 │       ├── lib/api/               # Axios client with CSRF & 401 interceptors
 │       └── types/                 # Strict TypeScript entity schemas
@@ -66,7 +71,17 @@ Designed to manage from independent boutique hotels to hotel chains exceeding 50
 4. **Cookie-Based JWT & CSRF**:
    - Access & refresh tokens stored in secure `HttpOnly` cookies.
    - CSRF token in accessible cookie and passed via `X-CSRFToken` header.
-5. **Data Privacy**: Sensitive guest identification numbers and staff notes are strictly excluded from public serialization.
+5. **Role-Based Access, Enforced by the API**: hiding a page is not the protection, the backend checks the role on every request (`HotelRoleAccess` in `apps/common/permissions.py`):
+
+   | Action | Owner / Manager | Receptionist | Housekeeping | Finance / Auditor |
+   | :--- | :---: | :---: | :---: | :---: |
+   | View bookings & calendar | ✅ | ✅ | ✅ (rooms page) | ✅ |
+   | Create / cancel bookings, check-in / check-out | ✅ | ✅ | ❌ | ❌ |
+   | Guest records (view / edit) | ✅ | ✅ | ❌ | ❌ |
+   | Housekeeping tasks | ✅ | ✅ | ✅ | ❌ |
+   | Payments list | ✅ | ❌ | ❌ | ✅ |
+   | Approve / refund / reviews / room setup | ✅ | ❌ | ❌ | ❌ |
+6. **Data Privacy**: A guest's passport / ID number is write-only in the API: staff can record it, but responses carry only a masked hint (`••••4321`). Internal staff notes are never serialized.
 
 ---
 
@@ -86,7 +101,7 @@ This spins up:
 - **PostgreSQL 17** at port `5432`
 - **Redis 7** at port `6379`
 - **Django Backend** at port `8000`
-- **Celery Worker** connected to Redis
+- **Celery Worker** connected to Redis (with `-B`: also runs the beat schedule)
 - **Next.js Frontend** at port `3000`
 
 ### 3. Apply Migrations & Create Superuser
@@ -100,6 +115,44 @@ docker-compose exec backend python manage.py createsuperuser
 - **API Documentation (Swagger UI)**: `http://localhost:8000/api/docs/`
 - **OpenAPI Schema (JSON)**: `http://localhost:8000/api/schema/`
 - **Django Administration**: `http://localhost:8000/admin/`
+
+---
+
+## 💻 Local Run Without Docker (SQLite)
+
+`config.settings.local` uses SQLite, an in-memory cache and runs Celery tasks inline, so no PostgreSQL or Redis is needed. Three terminals:
+
+```powershell
+# 1. Backend API (http://127.0.0.1:8000)
+cd backend; $env:DJANGO_SETTINGS_MODULE="config.settings.local"; .venv\Scripts\python manage.py migrate; .venv\Scripts\python manage.py runserver 127.0.0.1:8000
+
+# 2. Frontend (http://localhost:3000)
+cd frontend; npm run dev
+
+# 3. Telegram bot by long polling (refuses to start if a server webhook is set; --force takes it over)
+cd backend; $env:DJANGO_SETTINGS_MODULE="config.settings.local"; .venv\Scripts\python manage.py run_telegram_bot
+```
+
+---
+
+## 🤖 Owner's Claude Assistant (Telegram)
+
+A private Telegram bot, separate from the hotels' guest bots, that answers the owner's questions about
+the tasks given and the changes made in this project. It reads `backend/apps/assistant/knowledge/tarix.md`
+(append a section there after every task) and calls Claude Opus 5.5. It is read-only.
+
+1. Create a bot with @BotFather and get an API key at https://platform.claude.com.
+2. In `backend/.env`: `ASSISTANT_BOT_TOKEN`, `ANTHROPIC_API_KEY`, `ASSISTANT_ALLOWED_CHAT_IDS` (send `/id` to the bot to see yours).
+3. Run `python manage.py run_assistant_bot`. Commands: `/vazifalar`, `/ozgarishlar 4`, `/holat`, `/yangi`, `/id`.
+
+---
+
+## ⏱️ Scheduled Job: Lapsed Telegram Requests
+
+A Telegram request is cancelled when its payment time runs out or its arrival day passes unanswered, which frees the room and tells the guest. This runs on every bot update, when the panel lists or creates bookings or opens the calendar, and on a schedule:
+
+- **Docker Compose**: the Celery worker runs with `-B`, and `CELERY_BEAT_SCHEDULE` calls it every 5 minutes.
+- **Railway / Render (web process only, no Celery)**: add a cron service with the same image, schedule `*/5 * * * *` and command `python manage.py expire_telegram_requests`.
 
 ---
 

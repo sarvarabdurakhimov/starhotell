@@ -26,7 +26,7 @@ def hotel_factory(db, user_factory):
             owner = user_factory(email=f"owner_{name.lower().replace(' ', '_')}@example.com")
         from django.utils.text import slugify
         slug = slugify(name)
-        hotel = Hotel.objects.create(name=name, slug=slug, currency="USD", **extra)
+        hotel = Hotel.objects.create(name=name, slug=slug, **extra)
         HotelSettings.objects.create(hotel=hotel)
         HotelMembership.objects.create(hotel=hotel, user=owner, role=HotelRole.OWNER, is_active=True)
         return hotel, owner

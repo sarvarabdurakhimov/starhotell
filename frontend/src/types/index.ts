@@ -160,7 +160,8 @@ export interface Guest {
   email: string;
   phone: string;
   id_type: string;
-  id_number: string;
+  id_number?: string; // write-only: the API never returns it
+  id_number_hint?: string; // e.g. "••••4321"
   nationality: string;
   date_of_birth?: string;
   is_vip: boolean;

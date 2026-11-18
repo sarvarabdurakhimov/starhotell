@@ -52,6 +52,12 @@ const ROLE_PAGES: Record<PanelRole, string[]> = {
   staff: ["calendar", "bookings", "rooms", "guests", "housekeeping"],
 };
 
+// Who may create / cancel bookings and check guests in or out. The backend enforces the same rule
+// (FRONT_DESK in backend/apps/common/permissions.py); here it only hides buttons that would get a 403.
+export function isFrontDesk(role?: PanelRole, staffRole?: string): boolean {
+  return role === "owner" || role === "manager" || (role === "staff" && staffRole === "receptionist");
+}
+
 export function panelPath(role: PanelRole, sub?: string): string {
   const base = ROLE_BASE[role];
   return sub && ROLE_PAGES[role].includes(sub) ? `${base}/${sub}` : base;
