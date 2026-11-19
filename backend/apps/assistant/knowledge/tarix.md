@@ -187,3 +187,8 @@ haqiqiy bazada ishga tushiradi (qaytarib bo'lmaydi) — oldin zaxira nusxa.
   `TELEGRAM_WEBAPP_URL` o'rnatilishi kerak.
 - 8-vazifa (xonaga buyurtmalar) GitHub'ga push qilindi (2026-11-19).
 - Next.js xavfsizlik yangilanishi hali qilinmagan.
+- 9-vazifa holati (2026-11-19): Railway backend eski kod bilan qayta ishga tushirildi (redeploy), lekin
+  `set_telegram_webhooks` hech bir botga webhook qo'ymadi — production bazasida @starhotell_bot yo'q yoki
+  faol emas. Hozircha bot mahalliy kompyuterdagi `run_telegram_bot` (polling) orqali javob beryapti; kompyuter
+  o'chsa bot ham jim bo'ladi. Doimiy yechim: production panelda (starhotel.vercel.app) bot tokenini kiritib
+  "Faol" holatda saqlash — shunda webhook o'rnatiladi va mahalliy polling to'xtatilishi kerak.
