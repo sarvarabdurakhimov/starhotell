@@ -195,3 +195,7 @@ haqiqiy bazada ishga tushiradi (qaytarib bo'lmaydi) — oldin zaxira nusxa.
 - 10-vazifa (2026-11-19): Bosh sahifada "Dinamika" va "Bo'limlar" juda tor chiqardi. Sabab: Tailwind
   `src/screens` papkasini o'qimas edi, shu sababli `lg:col-span-8/4` kabi klasslar CSS'ga tushmagan.
   `frontend/tailwind.config.ts` content ro'yxatiga `src/screens` va `src/lib` qo'shildi.
+- 11-vazifa (2026-11-19): Barcha sahifalar tekshirildi: koddagi har bir klass CSS'da borligi skript bilan
+  solishtirildi. Faqat `/learning` sahifasida Tailwind 3 da yo'q 3 ta klass bor edi (`h-18`,
+  `bg-blue-500/8`, `animate-spin-slow`); ular `h-[72px]`, `bg-blue-500/[0.08]`,
+  `animate-[spin_20s_linear_infinite]` bilan almashtirildi. Barcha sahifalar ochiladi, TypeScript xatosiz.

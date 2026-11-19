@@ -157,7 +157,7 @@ export default function LearningLandingPage() {
       <header className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors ${
         isDark ? "bg-slate-950/80 border-slate-800" : "bg-white/80 border-slate-200"
       }`}>
-        <div className="max-w-7xl mx-auto px-6 h-18 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 h-[72px] flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 font-black text-xl tracking-tight">
             <img
               src="/logo.png"
@@ -214,7 +214,7 @@ export default function LearningLandingPage() {
       {/* 2. Hero Section */}
       <section className="relative pt-16 pb-20 px-6 overflow-hidden">
         {/* Background gradient glows */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-blue-500/8 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-blue-500/[0.08] rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-amber-400/5 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="max-w-7xl mx-auto relative z-10">
@@ -262,7 +262,7 @@ export default function LearningLandingPage() {
             <div className="relative flex items-center justify-center">
               {/* Decorative ring */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className={`w-80 h-80 rounded-full border-2 border-dashed animate-spin-slow opacity-20 ${
+                <div className={`w-80 h-80 rounded-full border-2 border-dashed animate-[spin_20s_linear_infinite] opacity-20 ${
                   isDark ? "border-blue-500" : "border-blue-300"
                 }`} style={{ animationDuration: "20s" }}></div>
               </div>
