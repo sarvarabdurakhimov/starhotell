@@ -7,6 +7,10 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+# The /api proxy target is fixed at build time (next.config.ts rewrites); Railway passes it as a build arg
+ARG BACKEND_URL
+ENV BACKEND_URL=$BACKEND_URL
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # Runner stage

@@ -223,3 +223,13 @@ haqiqiy bazada ishga tushiradi (qaytarib bo'lmaydi) — oldin zaxira nusxa.
   - Migratsiyalar: bookings 0008, hotels 0005, telegram_bot 0003, room_service 0002 (mahalliy bazaga qo'llandi).
     Railway'da hali eski kod: yangilashda avval zaxira nusxa, keyin bu migratsiyalar ham ishlaydi.
   - Testlar: `tests/test_guest_services.py` (16 ta); jami 92 ta o'tdi.
+- 14-vazifa (2026-11-19): Hammasi internetga chiqarildi (Railway):
+  - Zaxira: production bazasi `pg_dump` bilan Desktop'ga olindi (`starhotel_backup_utf8.sql`); baza deyarli bo'sh edi.
+  - Backend yangi kodda (`railway up`; GitHub ulanishi ishlamaydi — Railway ilovasi `starhotel` repoga kira olmaydi).
+    Barcha migratsiyalar (so'm va mehmon xizmatlari) bajarildi.
+  - Frontend Railway'da yangi `frontend` servisi: https://frontend-production-775fb9b8.up.railway.app
+    (`/api` Next proxy orqali backendga; `BACKEND_URL` Dockerfile'da build arg). starhotel.vercel.app ishlamaydi.
+  - Backend: FRONTEND_URL / CORS / CSRF / TELEGRAM_WEBAPP_URL shu manzilga. Mini App: `/tg/<bot id>`.
+  - Cron o'rniga backend konteynerida har 5 daqiqada `expire_telegram_requests` (eslatmalar, muddati o'tganlar,
+    webhook tekshiruvi) — `Dockerfile.railway`.
+  - Yangi kodni yuklash: loyiha ildizidan `railway up -s backend`, frontend: `railway up frontend --path-as-root -s frontend`.

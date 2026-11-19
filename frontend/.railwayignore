@@ -1,0 +1,6 @@
+# Not uploaded by `railway up` (the service sets its own variables: BACKEND_URL, ...)
+node_modules
+.next
+.env.local
+.env*.local
+tsconfig.tsbuildinfo

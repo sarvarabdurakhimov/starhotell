@@ -17,4 +17,6 @@ RUN groupadd -r django && useradd -r -g django django && chown -R django:django 
 USER django
 
 # Railway passes the port in $PORT. Migrations run first, then bots are pointed at this server's webhook.
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py set_telegram_webhooks && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 60 --access-logfile -"]
+# Every 5 minutes, in the background: lapsed Telegram requests expire, guests get their reminders
+# (arrival / check-out / review, each sent once) and a lost webhook is restored. No Celery / cron service needed.
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py set_telegram_webhooks && { (while true; do sleep 300; python manage.py expire_telegram_requests || true; done) & exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 60 --access-logfile -; }"]
