@@ -18,6 +18,8 @@ export interface HotelSettings {
   tax_rate_percent: string;
   breakfast_included_default: boolean;
   terms_and_conditions: string;
+  loyalty_min_stays: number; // 0 = returning-guest discount off
+  loyalty_discount_percent: string;
 }
 
 export interface Hotel {

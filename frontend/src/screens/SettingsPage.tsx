@@ -78,6 +78,8 @@ export default function HotelStaffAndSettingsPage() {
     check_out_time: "",
     tax_rate_percent: "",
     cancellation_hours: 0,
+    loyalty_min_stays: 0,
+    loyalty_discount_percent: "",
   });
 
   // Formani bazadagi haqiqiy qiymatlar bilan to'ldiramiz
@@ -92,6 +94,8 @@ export default function HotelStaffAndSettingsPage() {
       check_out_time: (s?.check_out_time || "").slice(0, 5),
       tax_rate_percent: s?.tax_rate_percent || "",
       cancellation_hours: s?.cancellation_hours ?? 0,
+      loyalty_min_stays: s?.loyalty_min_stays ?? 0,
+      loyalty_discount_percent: s?.loyalty_discount_percent ? String(Number(s.loyalty_discount_percent)) : "",
     });
   }, [hotelData]);
 
@@ -106,6 +110,8 @@ export default function HotelStaffAndSettingsPage() {
           check_out_time: settingsForm.check_out_time,
           tax_rate_percent: settingsForm.tax_rate_percent || "0",
           cancellation_hours: settingsForm.cancellation_hours,
+          loyalty_min_stays: settingsForm.loyalty_min_stays,
+          loyalty_discount_percent: settingsForm.loyalty_discount_percent || "0",
         },
       }),
     onSuccess: () => {
@@ -482,6 +488,38 @@ export default function HotelStaffAndSettingsPage() {
                   className="w-full px-3 py-2 border border-stone-300 rounded focus:border-stone-900 outline-none font-mono"
                 />
               </div>
+            </div>
+
+            <div className="pt-2">
+              <div className="font-bold text-stone-900 mb-2">🎁 Doimiy mijoz chegirmasi</div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase mb-1">Necha marta kelgandan keyin</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={settingsForm.loyalty_min_stays}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, loyalty_min_stays: Math.max(0, Number(e.target.value)) })}
+                    className="w-full px-3 py-2 border border-stone-300 rounded focus:border-stone-900 outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase mb-1">Chegirma (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.5"
+                    value={settingsForm.loyalty_discount_percent}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, loyalty_discount_percent: e.target.value })}
+                    className="w-full px-3 py-2 border border-stone-300 rounded focus:border-stone-900 outline-none font-mono"
+                  />
+                </div>
+              </div>
+              <p className="mt-1 text-stone-500">
+                Masalan 2 va 10%: mehmonxonada 2 marta qolib ketgan mijoz keyingi bronlarida 10% arzon to&apos;laydi
+                (botda, ilovada va panelda). 0 = o&apos;chiq.
+              </p>
             </div>
 
             <div className="pt-4 border-t border-stone-100 flex justify-end">

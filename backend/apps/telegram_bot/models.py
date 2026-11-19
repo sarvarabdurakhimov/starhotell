@@ -51,3 +51,13 @@ class TelegramChat(TimestampedModel):
 
     def __str__(self) -> str:
         return f'{self.chat_id} @{self.username}'
+
+
+class SentReminder(models.Model):
+    """A reminder the bot already sent about a booking, so the scheduled job sends each one once."""
+    booking = models.ForeignKey('bookings.Booking', on_delete=models.CASCADE, related_name='sent_reminders')
+    kind = models.CharField(max_length=20)  # arrival / checkout / review
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('booking', 'kind')]

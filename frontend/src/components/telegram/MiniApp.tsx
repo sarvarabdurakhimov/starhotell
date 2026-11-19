@@ -38,6 +38,7 @@ interface RoomType {
   amenities: string[];
   price_per_night: number;
   total: number | null;
+  discount_percent?: number; // returning guest: the total already has it taken off
   photos: string[];
 }
 interface Info {
@@ -711,7 +712,13 @@ export function MiniApp({ botId }: { botId: string }) {
               )}
               <div className="mt-3 flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-lg font-bold">{som(rt.total)}</div>
+                  <div className="text-lg font-bold">
+                    {som(rt.total)}
+                    {!!rt.discount_percent && (
+                      <span className="ml-2 rounded-md px-1.5 py-0.5 text-xs font-semibold"
+                        style={{ background: C.button, color: C.buttonText }}>🎁 −{rt.discount_percent}%</span>
+                    )}
+                  </div>
                   <div className="text-xs" style={{ color: C.hint }}>{t.nights(nights)} · {t.upTo(rt.max_occupancy)}</div>
                 </div>
                 <button className="rounded-xl px-5 py-2.5 text-sm font-semibold"

@@ -58,6 +58,7 @@ class Booking(TimestampedModel):
     # Price snapshot at time of booking — never recalculated retroactively
     rate_per_night = models.DecimalField(max_digits=10, decimal_places=2)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)  # already taken off total
     currency = models.CharField(max_length=3, default=CURRENCY, choices=CURRENCY_CHOICES, editable=False)
 
     special_requests = models.TextField(blank=True)

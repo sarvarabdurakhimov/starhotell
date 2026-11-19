@@ -10,7 +10,7 @@ from django.db import close_old_connections
 from apps.telegram_bot.api import TelegramAPI, TelegramError
 from apps.telegram_bot.handlers import handle_update
 from apps.telegram_bot.models import BotConfig
-from apps.telegram_bot.services import expire_stale
+from apps.telegram_bot.services import expire_stale, send_reminders
 from apps.telegram_bot.views import set_menu_button
 
 ALLOWED = ['message', 'callback_query', 'pre_checkout_query']
@@ -39,6 +39,7 @@ class Command(BaseCommand):
                     return
         self.stdout.write('Telegram bots: long polling started (Ctrl+C to stop)', ending='\n')
         cleared = set()
+        reminded_at = 0.0
         while True:
             close_old_connections()
             bots = list(BotConfig.objects.filter(is_active=True).select_related('hotel'))
@@ -46,6 +47,9 @@ class Command(BaseCommand):
                 time.sleep(5)
                 continue
             expire_stale()
+            if time.monotonic() - reminded_at > 60:  # reminders: checked once a minute is plenty
+                reminded_at = time.monotonic()
+                send_reminders()
             # One bot: hold each request open longer. Several: poll each briefly in turn.
             wait = 25 if len(bots) == 1 else 2
             for bot in bots:

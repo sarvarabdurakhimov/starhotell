@@ -61,6 +61,9 @@ class HotelSettings(TimestampedModel):
     tax_rate_percent = models.DecimalField(max_digits=5, decimal_places=2, default='0.00')
     breakfast_included_default = models.BooleanField(default=False)
     terms_and_conditions = models.TextField(blank=True)
+    # Returning guests: after this many finished stays (0 = off) new bookings get this discount
+    loyalty_min_stays = models.PositiveSmallIntegerField(default=0)
+    loyalty_discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default='0.00')
 
     class Meta:
         verbose_name = 'hotel settings'

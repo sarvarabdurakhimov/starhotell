@@ -33,7 +33,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'id', 'reference', 'status', 'status_display',
             'room', 'room_number', 'guest', 'guest_name',
             'check_in', 'check_out', 'num_adults', 'num_children',
-            'rate_per_night', 'total_amount', 'currency',
+            'rate_per_night', 'total_amount', 'discount_amount', 'currency',
             'special_requests', 'cancellation_reason',
             'actual_check_in', 'actual_check_out',
             'source', 'approved_at', 'payment_due_at', 'cancel_requested_at', 'guest_phone', 'guest_blacklisted',

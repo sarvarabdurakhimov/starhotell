@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from apps.common.permissions import HotelRoleAccess, IsHotelManager
 
 from . import services
-from .models import ItemCategory, OrderStatus, ServiceItem, ServiceOrder
+from .models import GuestRequest, ItemCategory, OrderStatus, RequestStatus, ServiceItem, ServiceOrder
 
 # Who sees and handles orders: front desk and housekeeping deliver; finance / auditor may look
 ORDER_READERS = ('receptionist', 'housekeeping', 'finance', 'auditor')
@@ -19,7 +19,13 @@ class ServiceItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ServiceItem
-        fields = ('id', 'name', 'category', 'category_display', 'price', 'is_active', 'position')
+        fields = ('id', 'name', 'category', 'category_display', 'price', 'is_active', 'position',
+                  'stock', 'low_stock', 'is_low')
+
+    is_low = serializers.SerializerMethodField()
+
+    def get_is_low(self, obj) -> bool:
+        return obj.stock is not None and obj.stock <= obj.low_stock
 
     def validate_price(self, value):
         if value < 0:
@@ -129,3 +135,41 @@ class OrderDetailView(APIView):
             order.is_paid = bool(request.data['is_paid'])
             order.save(update_fields=['is_paid', 'updated_at'])
         return Response(order_data(order))
+
+
+def request_data(r: GuestRequest) -> dict:
+    guest = r.booking.guest
+    return {
+        'id': r.id, 'kind': r.kind, 'kind_display': r.get_kind_display(), 'text': r.text,
+        'status': r.status, 'status_display': r.get_status_display(),
+        'room_number': r.room.room_number, 'guest_name': guest.full_name, 'guest_phone': guest.phone,
+        'booking_reference': r.booking.reference, 'created_at': r.created_at, 'done_at': r.done_at,
+        'handled_by': r.handled_by.get_full_name() if r.handled_by else None,
+    }
+
+
+class RequestListView(APIView):
+    """GET /api/v1/room-service/hotels/{hotel_id}/requests/?status=open|done|cancelled (cleaning / repair)"""
+    permission_classes = [HotelRoleAccess]
+    read_roles = ORDER_READERS
+
+    def get(self, request, hotel_id):
+        qs = GuestRequest.objects.filter(hotel_id=hotel_id).select_related('room', 'booking__guest', 'handled_by')
+        wanted = request.query_params.get('status', 'open')
+        if wanted == 'open':
+            qs = qs.filter(status__in=[RequestStatus.NEW, RequestStatus.ACCEPTED])
+        elif wanted in RequestStatus.values:
+            qs = qs.filter(status=wanted)
+        return Response([request_data(r) for r in qs[:200]])
+
+
+class RequestDetailView(APIView):
+    """PATCH /api/v1/room-service/hotels/{hotel_id}/requests/{pk}/ with {"status": "accepted"|"done"|"cancelled"}"""
+    permission_classes = [HotelRoleAccess]
+    write_roles = ORDER_HANDLERS
+
+    def patch(self, request, hotel_id, pk):
+        qs = GuestRequest.objects.select_related('room', 'booking__guest', 'telegram_chat__bot')
+        req = get_object_or_404(qs, pk=pk, hotel_id=hotel_id)
+        services.set_request_status(req, str(request.data.get('status', '')), request.user)
+        return Response(request_data(req))

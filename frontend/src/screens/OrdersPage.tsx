@@ -42,19 +42,37 @@ interface Item {
   category_display: string;
   price: string;
   is_active: boolean;
+  stock: number | null;
+  low_stock: number;
+  is_low: boolean;
+}
+interface GuestRequest {
+  id: number;
+  kind: "cleaning" | "repair";
+  kind_display: string;
+  text: string;
+  status: "new" | "accepted" | "done" | "cancelled";
+  status_display: string;
+  room_number: string;
+  guest_name: string;
+  guest_phone: string;
+  created_at: string;
+  done_at: string | null;
+  handled_by: string | null;
 }
 
-const STATUS_STYLE: Record<Order["status"], string> = {
+const STATUS_STYLE: Record<string, string> = {
   new: "bg-amber-100 text-amber-900 border-amber-300",
   accepted: "bg-sky-100 text-sky-900 border-sky-300",
   delivered: "bg-emerald-100 text-emerald-900 border-emerald-300",
+  done: "bg-emerald-100 text-emerald-900 border-emerald-300",
   cancelled: "bg-stone-100 text-stone-600 border-stone-300",
 };
 
 const time = (iso: string) =>
   new Date(iso).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-type Tab = "open" | "delivered" | "cancelled" | "menu";
+type Tab = "open" | "delivered" | "cancelled" | "requests" | "menu";
 
 export default function OrdersPage() {
   const { hotelId, role, staffRole } = usePanel();
@@ -65,9 +83,29 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [newItem, setNewItem] = useState({ name: "", category: "other", price: "" });
 
+  const [requestFilter, setRequestFilter] = useState<"open" | "done">("open");
+  const requests = useQuery({
+    queryKey: ["guest-requests", hotelId, requestFilter],
+    enabled: tab === "requests",
+    refetchInterval: requestFilter === "open" ? 15000 : false,
+    queryFn: async () =>
+      (await apiClient.get<GuestRequest[]>(`/room-service/hotels/${hotelId}/requests/`, {
+        params: { status: requestFilter },
+      })).data,
+  });
+  const updateRequest = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiClient.patch(`/room-service/hotels/${hotelId}/requests/${id}/`, { status }),
+    onSuccess: () => {
+      setError(null);
+      qc.invalidateQueries({ queryKey: ["guest-requests", hotelId] });
+    },
+    onError: (e: unknown) => setError(apiError(e)),
+  });
+
   const orders = useQuery({
     queryKey: ["service-orders", hotelId, tab],
-    enabled: tab !== "menu",
+    enabled: tab !== "menu" && tab !== "requests",
     refetchInterval: tab === "open" ? 15000 : false, // new orders appear without a reload
     queryFn: async () =>
       (await apiClient.get<Order[]>(`/room-service/hotels/${hotelId}/orders/`, { params: { status: tab } })).data,
@@ -102,7 +140,9 @@ export default function OrdersPage() {
     onError,
   });
   const updateItem = useMutation({
-    mutationFn: ({ id, ...body }: { id: number; price?: string; is_active?: boolean }) =>
+    mutationFn: ({ id, ...body }: {
+      id: number; price?: string; is_active?: boolean; stock?: number | null; low_stock?: number;
+    }) =>
       apiClient.patch(`/room-service/hotels/${hotelId}/items/${id}/`, body),
     onSuccess: done,
     onError,
@@ -123,6 +163,7 @@ export default function OrdersPage() {
     { key: "open", label: "Faol" },
     { key: "delivered", label: "Yetkazilgan" },
     { key: "cancelled", label: "Bekor qilingan" },
+    { key: "requests", label: "So'rovlar (tozalash, ta'mir)" },
     ...(canEditMenu ? [{ key: "menu" as Tab, label: "Menyu" }] : []),
   ];
   const btn = "px-2.5 py-1.5 rounded text-[11px] font-semibold inline-flex items-center gap-1 disabled:opacity-50 transition";
@@ -134,8 +175,8 @@ export default function OrdersPage() {
           <IconToolsKitchen2 className="w-6 h-6 text-amber-600" /> Buyurtmalar
         </h1>
         <p className="text-xs text-stone-500">
-          Mehmonlar Telegram ilovasidan xonaga suv, meva, sochiq, ko&apos;rpa, ovqat va boshqalarni buyurtma qiladi.
-          To&apos;lov qabulxonada olinadi.
+          Joylashgan mehmonlar Telegram botdan xonaga suv, meva, sochiq, ko&apos;rpa, ovqat va boshqalarni buyurtma qiladi,
+          xonani tozalashni so&apos;raydi yoki texnik muammo haqida xabar beradi. Menyuda ombor qoldig&apos;ini kuzatish mumkin.
         </p>
       </div>
 
@@ -151,7 +192,73 @@ export default function OrdersPage() {
 
       {error && <div className="p-3 rounded bg-rose-50 border border-rose-200 text-rose-800 text-xs">{error}</div>}
 
-      {tab !== "menu" && (
+      {tab === "requests" && (
+        <div className="space-y-3">
+          <div className="flex gap-1">
+            {(["open", "done"] as const).map((f) => (
+              <button key={f} onClick={() => setRequestFilter(f)}
+                className={`px-3 py-1 rounded text-[11px] font-semibold border ${
+                  requestFilter === f ? "bg-amber-600 text-white border-amber-600" : "bg-white text-stone-600 border-stone-300"}`}>
+                {f === "open" ? "Faol" : "Bajarilgan"}
+              </button>
+            ))}
+          </div>
+          {requests.isLoading ? (
+            <p className="text-xs text-stone-400">Yuklanmoqda...</p>
+          ) : !requests.data?.length ? (
+            <div className="p-8 text-center bg-white rounded border border-stone-200 text-sm text-stone-500">
+              {requestFilter === "open" ? "Hozircha so'rov yo'q." : "Bajarilgan so'rov yo'q."}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {requests.data.map((r) => (
+                <div key={r.id} className="bg-white rounded border border-stone-200 shadow-sm p-4 flex flex-col">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-2xl font-serif font-bold text-stone-900">{r.room_number}-xona</div>
+                      <div className="text-xs text-stone-500">#{r.id} · {time(r.created_at)} · {r.guest_name}</div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${STATUS_STYLE[r.status]}`}>
+                      {r.status_display}
+                    </span>
+                  </div>
+                  <div className="mt-3 text-sm font-semibold text-stone-800">
+                    {r.kind === "cleaning" ? "🧹" : "🔧"} {r.kind_display}
+                  </div>
+                  {r.text && (
+                    <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200 text-[11px] text-amber-950">💬 {r.text}</div>
+                  )}
+                  {canHandle && (r.status === "new" || r.status === "accepted") && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {r.status === "new" && (
+                        <button disabled={updateRequest.isPending}
+                          onClick={() => updateRequest.mutate({ id: r.id, status: "accepted" })}
+                          className={`${btn} bg-sky-700 hover:bg-sky-800 text-white`}>
+                          <IconCheck className="w-3.5 h-3.5" /> Qabul qilish
+                        </button>
+                      )}
+                      <button disabled={updateRequest.isPending}
+                        onClick={() => updateRequest.mutate({ id: r.id, status: "done" })}
+                        className={`${btn} bg-emerald-700 hover:bg-emerald-800 text-white`}>
+                        <IconCheck className="w-3.5 h-3.5" /> Bajarildi
+                      </button>
+                      <button disabled={updateRequest.isPending}
+                        onClick={() => confirm(`#${r.id} so'rovni bekor qilasizmi? Mehmonga xabar boradi.`) &&
+                          updateRequest.mutate({ id: r.id, status: "cancelled" })}
+                        className={`${btn} bg-stone-100 hover:bg-rose-100 text-stone-700 border border-stone-300`}>
+                        <IconX className="w-3.5 h-3.5" /> Bekor
+                      </button>
+                    </div>
+                  )}
+                  {r.handled_by && <div className="mt-2 text-[11px] text-stone-400">Xodim: {r.handled_by}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab !== "menu" && tab !== "requests" && (
         orders.isLoading ? (
           <p className="text-xs text-stone-400">Yuklanmoqda...</p>
         ) : !orders.data?.length ? (
@@ -275,6 +382,8 @@ export default function OrdersPage() {
                     <th className="text-left px-4 py-2">Nomi</th>
                     <th className="text-left px-4 py-2">Turi</th>
                     <th className="text-left px-4 py-2">Narx (so&apos;m)</th>
+                    <th className="text-left px-4 py-2" title="Bo'sh = sanalmaydi">Qoldiq</th>
+                    <th className="text-left px-4 py-2" title="Shu songa tushganda Telegram'da ogohlantiriladi">Ogohlantirish</th>
                     <th className="text-left px-4 py-2">Ko&apos;rinadi</th>
                     <th />
                   </tr>
@@ -291,6 +400,31 @@ export default function OrdersPage() {
                               updateItem.mutate({ id: it.id, price: e.target.value || "0" });
                           }}
                           className="w-32 px-2 py-1 border border-stone-300 rounded text-sm font-mono" />
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          <input type="number" min="0" step="1" defaultValue={it.stock ?? ""} placeholder="—"
+                            key={`stock-${it.id}-${it.stock}`}
+                            onBlur={(e) => {
+                              const v = e.target.value === "" ? null : Math.max(0, Math.round(Number(e.target.value)));
+                              if (v !== it.stock) updateItem.mutate({ id: it.id, stock: v });
+                            }}
+                            className="w-20 px-2 py-1 border border-stone-300 rounded text-sm font-mono" />
+                          {it.stock === 0 ? (
+                            <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-semibold">Tugagan</span>
+                          ) : it.is_low ? (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-semibold">Kam qoldi</span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2">
+                        <input type="number" min="0" step="1" defaultValue={it.low_stock}
+                          key={`low-${it.id}-${it.low_stock}`}
+                          onBlur={(e) => {
+                            const v = Math.max(0, Math.round(Number(e.target.value) || 0));
+                            if (v !== it.low_stock) updateItem.mutate({ id: it.id, low_stock: v });
+                          }}
+                          className="w-16 px-2 py-1 border border-stone-300 rounded text-sm font-mono" />
                       </td>
                       <td className="px-4 py-2">
                         <input type="checkbox" checked={it.is_active}

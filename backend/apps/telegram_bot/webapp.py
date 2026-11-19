@@ -11,6 +11,7 @@ import json
 import re
 import time
 from datetime import date, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import parse_qsl
 
 from django.conf import settings
@@ -143,12 +144,17 @@ def _photos(rt: RoomType) -> list:
     return [photo_url(p.id) for p in rt.photos.all()]
 
 
-def _room_type(bot, rt: RoomType, nights: int = 0) -> dict:
+def _room_type(bot, rt: RoomType, nights: int = 0, pct=0) -> dict:
+    """pct: the guest's returning-guest discount; the total is what the booking will actually cost."""
+    total = rt.base_price * nights
+    if pct:
+        total -= (total * pct / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
     return {
         'id': rt.id, 'name': rt.name, 'description': rt.description, 'max_occupancy': rt.max_occupancy,
         'amenities': [str(a) for a in (rt.amenities or [])],
         'price_per_night': svc.uzs_amount(bot, rt.base_price),
-        'total': svc.uzs_amount(bot, rt.base_price * nights) if nights else None,
+        'total': svc.uzs_amount(bot, total) if nights else None,
+        'discount_percent': float(pct or 0),
         'photos': _photos(rt),
     }
 
@@ -220,7 +226,9 @@ class AvailabilityView(WebAppView):
         svc.expire_stale(self.bot.hotel_id)
         nights = (co - ci).days
         types = svc.available_room_types(self.bot.hotel_id, ci, co, guests)
-        return Response({'nights': nights, 'room_types': [_room_type(self.bot, rt, nights) for rt in types]})
+        pct = svc.chat_loyalty_percent(self.chat)
+        return Response({'nights': nights, 'discount_percent': float(pct),
+                         'room_types': [_room_type(self.bot, rt, nights, pct) for rt in types]})
 
 
 PHONE_RE = re.compile(r'^\+?\d{9,15}$')

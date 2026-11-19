@@ -206,3 +206,20 @@ haqiqiy bazada ishga tushiradi (qaytarib bo'lmaydi) — oldin zaxira nusxa.
   yuboriladigan xabar https bo'lmasa chatdagi buyurtma ekraniga olib boradi. Testlar: `TestOrderInChat`.
   Mahalliy bazada: menyu bo'sh (panel → Buyurtmalar → standart menyu), hozir hech kim joylashmagan,
   `notify_chat_id` ga email yozilgan (Telegram chat ID bo'lishi kerak).
+- 13-vazifa (2026-11-19): Mehmon uchun 6 ta yangi imkoniyat (tavsiyalar ro'yxatidagi 3, 4, 6, 7, 10, 11):
+  - Botda "🛎 Xizmatlar" menyusi (joylashgan mehmonga): buyurtma, xonani tozalash, texnik muammo, hisob.
+  - (3) Buyurtmaga izoh ("choy shakarsiz, soat 8 da") — xodimlarga va panelga boradi.
+  - (4) Tozalash / ta'mir so'rovlari: `GuestRequest` modeli; panel → Buyurtmalar → "So'rovlar" yorlig'i;
+    qabul qilinganda / bajarilganda mehmonga xabar boradi.
+  - (6) "🧾 Hisobim": xona narxi, chegirma, to'langan, buyurtmalar, qarz. Onlayn to'lov yoqilgan bo'lsa
+    Telegram orqali to'lash (`bill:` invoice; buyurtmalar "to'langan" bo'ladi), bo'lmasa qabulxonada.
+  - (7) Eslatmalar (`send_reminders`): kelishdan 1 kun oldin (manzil, vaqt), chiqish kuni ertalab 8 dan keyin
+    (hisob tugmasi bilan), ketgandan 1-3 kun keyin baho so'ralmagan bo'lsa yana bir marta. Har biri bir marta
+    (`SentReminder`). Mahalliy botda daqiqada bir tekshiriladi; serverda cron `expire_telegram_requests`.
+  - (10) Ombor: menyudagi narsaga "Qoldiq" va "Ogohlantirish" chegarasi; buyurtma qoldiqdan ayiriladi, bekor
+    qilinsa qaytadi, kam qolganda Telegram'da ogohlantirish, 0 bo'lsa mehmonga ko'rsatilmaydi.
+  - (11) Doimiy mijoz chegirmasi: Sozlamalar → "Necha marta kelgandan keyin" va "Chegirma (%)"; bron
+    yaratilganda avtomatik (`Booking.discount_amount`), botda eski narx chizilgan holda ko'rinadi.
+  - Migratsiyalar: bookings 0008, hotels 0005, telegram_bot 0003, room_service 0002 (mahalliy bazaga qo'llandi).
+    Railway'da hali eski kod: yangilashda avval zaxira nusxa, keyin bu migratsiyalar ham ishlaydi.
+  - Testlar: `tests/test_guest_services.py` (16 ta); jami 92 ta o'tdi.

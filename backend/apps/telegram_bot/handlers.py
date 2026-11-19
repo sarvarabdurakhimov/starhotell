@@ -189,11 +189,15 @@ def show_rooms(c: Ctx):
         c.set_state('dates')
         return c.ask_more(*ask_checkin(c))
 
-    c.ask(c.t('rooms_found', check_in=svc.fmt_date(ci), check_out=svc.fmt_date(co), guests=guests))
+    pct = svc.chat_loyalty_percent(c.chat)
+    found = c.t('rooms_found', check_in=svc.fmt_date(ci), check_out=svc.fmt_date(co), guests=guests)
+    if pct:
+        found += '\n\n' + c.t('loyalty_badge', pct=svc.pct_text(pct))
+    c.ask(found)
     for rt in types:
         caption = c.t(
             'room_caption', name=rt.name, description=(rt.description or '')[:300], occupancy=rt.max_occupancy,
-            nights=nights, total=svc.price_text(c.bot, rt.base_price * nights),
+            nights=nights, total=svc.stay_price_text(c.chat, rt.base_price * nights, pct),
         )
         if rt.amenities:
             caption += '\n' + c.t('room_amenities', amenities=', '.join(map(str, rt.amenities))[:200])
@@ -237,7 +241,7 @@ def show_summary(c: Ctx):
     return c.ask_more(
         c.t('summary', hotel=c.bot.hotel.name, room_type=rt.name, check_in=svc.fmt_date(ci), check_out=svc.fmt_date(co),
             nights=nights, guests=d['guests'], name=f'{c.chat.first_name} {c.chat.last_name}'.strip(),
-            phone=c.chat.phone, total=svc.price_text(c.bot, rt.base_price * nights)),
+            phone=c.chat.phone, total=svc.stay_price_text(c.chat, rt.base_price * nights)),
         {'inline_keyboard': [
             [{'text': c.t('confirm'), 'callback_data': 'ok'}, {'text': c.t('cancel'), 'callback_data': 'no'}],
             [{'text': c.t('edit_details'), 'callback_data': 'ed'}],
@@ -273,15 +277,15 @@ def my_bookings(c: Ctx):
         c.say(*booking_card(c, b))
 
 
-# ── room service in the chat (works without the Mini App / https) ────────────
+# ── services for a staying guest, in the chat (works without the Mini App / https) ──
 
 def _cart(c: Ctx) -> dict:
     """{item id: quantity} kept in the chat's data until the order is sent."""
     return {int(k): int(v) for k, v in (c.chat.data.get('cart') or {}).items()}
 
 
-def _save_cart(c: Ctx, cart: dict):
-    c.chat.data = {**c.chat.data, 'cart': {str(k): v for k, v in cart.items() if v > 0}}
+def _save_cart(c: Ctx, cart: dict, **extra):
+    c.chat.data = {**c.chat.data, 'cart': {str(k): v for k, v in cart.items() if v > 0}, **extra}
     c.chat.save(update_fields=['data', 'updated_at'])
 
 
@@ -289,33 +293,59 @@ def _price(c: Ctx, amount) -> str:
     return som(amount) if amount else c.t('rs_free')
 
 
-def room_service(c: Ctx):
-    """(text, markup) of the order screen: the menu as buttons, and the cart with its total."""
-    from apps.room_service.models import ServiceItem
-    from apps.room_service.services import MAX_QUANTITY, current_stay
+def _limit(item) -> int:
+    from apps.room_service.services import MAX_QUANTITY
+    return MAX_QUANTITY if item.stock is None else min(MAX_QUANTITY, item.stock)
+
+
+BACK = 'rsh'
+
+
+def services_hub(c: Ctx):
+    """(text, markup): what a staying guest can do — order, ask for cleaning, report a problem, see the bill."""
+    from apps.room_service.services import current_stay
     stay = current_stay(c.chat)
     if not stay:
         return c.t('rs_need_stay'), None
-    items = {i.id: i for i in ServiceItem.objects.filter(hotel_id=c.bot.hotel_id, is_active=True)}
+    return c.t('hub_title', room=stay.room.room_number), {'inline_keyboard': [
+        [{'text': c.t('hub_order'), 'callback_data': 'rso'}],
+        [{'text': c.t('hub_cleaning'), 'callback_data': 'rqc'}, {'text': c.t('hub_repair'), 'callback_data': 'rqr'}],
+        [{'text': c.t('hub_bill'), 'callback_data': 'rsbh'}],
+    ]}
+
+
+def room_service(c: Ctx):
+    """(text, markup) of the order screen: the menu as buttons, and the cart with its total and note."""
+    from apps.room_service.services import current_stay, orderable_items
+    stay = current_stay(c.chat)
+    if not stay:
+        return c.t('rs_need_stay'), None
+    items = {i.id: i for i in orderable_items(c.bot.hotel_id)}
     if not items:
-        return c.t('rs_empty'), None
-    cart = {i: q for i, q in _cart(c).items() if i in items}  # an item taken off the menu drops out
+        return c.t('rs_empty'), {'inline_keyboard': [[{'text': c.t('back'), 'callback_data': BACK}]]}
+    # an item taken off the menu (or sold out) drops out; more than is left is cut down
+    cart = {i: min(q, _limit(items[i])) for i, q in _cart(c).items() if i in items}
     rows = []
     for item in items.values():
         in_cart = f' ({cart[item.id]})' if item.id in cart else ''
         add = {'text': f'➕ {item.name} · {_price(c, item.price)}{in_cart}', 'callback_data': f'rs+:{item.id}'}
-        if cart.get(item.id, 0) >= MAX_QUANTITY:
+        if cart.get(item.id, 0) >= _limit(item):
             add['callback_data'] = 'noop'
         rows.append([add] + ([{'text': '➖', 'callback_data': f'rs-:{item.id}'}] if item.id in cart else []))
     text = c.t('rs_title', room=stay.room.room_number) + '\n\n'
+    note = c.chat.data.get('rs_note') or ''
     if cart:
         lines = '\n'.join(f'• {html.escape(items[i].name)} × {q}' for i, q in cart.items())
         total = sum((items[i].price * q for i, q in cart.items()), 0)
         text += c.t('rs_cart', lines=lines, total=som(total))
+        if note:
+            text += '\n' + c.t('rs_note_line', note=html.escape(note))
+        rows.append([{'text': c.t('rs_note_btn'), 'callback_data': 'rsn'}])
         rows.append([{'text': c.t('rs_clear'), 'callback_data': 'rs0'},
                      {'text': c.t('rs_send'), 'callback_data': 'rsok'}])
     else:
         text += c.t('rs_cart_empty')
+    rows.append([{'text': c.t('back'), 'callback_data': BACK}])
     return text, {'inline_keyboard': rows}
 
 
@@ -327,14 +357,22 @@ def send_room_service_order(c: Ctx):
     if not cart:
         return room_service(c)
     try:
-        order = create_order(c.chat, [{'id': i, 'quantity': q} for i, q in cart.items()])
+        order = create_order(c.chat, [{'id': i, 'quantity': q} for i, q in cart.items()],
+                             c.chat.data.get('rs_note') or '')
     except ValidationError as exc:
-        detail = exc.detail.get('detail') if isinstance(exc.detail, dict) else exc.detail
-        return c.t('rs_failed', reason=html.escape(str(detail))), None
-    _save_cart(c, {})
+        return c.t('rs_failed', reason=html.escape(_detail(exc))), \
+            {'inline_keyboard': [[{'text': c.t('back'), 'callback_data': 'rso'}]]}
+    _save_cart(c, {}, rs_note='')
     lines = '\n'.join(f'• {html.escape(li.name)} × {li.quantity}' for li in order.lines.all())
+    if order.note:
+        lines += '\n' + c.t('rs_note_line', note=html.escape(order.note))
     return (c.t('rs_sent', number=order.pk, room=order.room.room_number, lines=lines, total=som(order.total)),
             {'inline_keyboard': [[{'text': c.t('rs_cancel'), 'callback_data': f'rsx:{order.pk}'}]]})
+
+
+def _detail(exc) -> str:
+    d = exc.detail.get('detail') if isinstance(exc.detail, dict) else exc.detail
+    return str(d[0] if isinstance(d, list) and d else d)
 
 
 def cancel_room_service_order(c: Ctx, order_id: int) -> str:
@@ -348,6 +386,48 @@ def cancel_room_service_order(c: Ctx, order_id: int) -> str:
     except ValidationError:
         return c.t('rs_too_late')
     return c.t('rs_cancelled', number=order.pk)
+
+
+def send_guest_request(c: Ctx, kind: str, text: str = '') -> str:
+    from rest_framework.exceptions import ValidationError
+    from apps.room_service.services import create_guest_request, current_stay
+    if not current_stay(c.chat):
+        return c.t('rs_need_stay')
+    try:
+        req = create_guest_request(c.chat, kind, text)
+    except ValidationError as exc:
+        return c.t('rs_failed', reason=html.escape(_detail(exc)))
+    return c.t('rq_sent', number=req.pk, kind=c.t(f'gr_kind_{kind}'))
+
+
+def bill_view(c: Ctx):
+    """(text, markup): the guest's bill for the stay in progress, with a pay button when online payment is on."""
+    from apps.room_service.services import bill, current_stay
+    stay = current_stay(c.chat)
+    if not stay:
+        return c.t('rs_need_stay'), None
+    b = bill(stay)
+    parts = [c.t('bill_title', room=stay.room.room_number, reference=stay.reference),
+             c.t('bill_room', nights=b['nights'], total=som(b['room_total']))]
+    if b['discount']:
+        parts.append(c.t('bill_discount', amount=som(b['discount'])))
+    if b['room_paid']:
+        parts.append(c.t('bill_paid_line', amount=som(min(b['room_paid'], b['room_total']))))
+    if b['orders']:
+        lines = '\n'.join(
+            f"• #{o.id}: {som(o.total) if o.total else c.t('rs_free')}{' ✅' if o.is_paid else ''}" for o in b['orders'])
+        parts.append(c.t('bill_orders', lines=lines))
+    rows = []
+    if b['due'] > 0:
+        parts.append(c.t('bill_due', amount=som(b['due'])))
+        if svc.payments_enabled(c.bot):
+            rows.append([{'text': c.t('bill_pay_btn', amount=som(b['due'])), 'callback_data': 'rsbp'}])
+        else:
+            parts.append(c.t('bill_at_desk'))
+    else:
+        parts.append(c.t('bill_nothing'))
+    rows.append([{'text': c.t('back'), 'callback_data': BACK}])
+    return '\n\n'.join(parts), {'inline_keyboard': rows}
 
 
 def is_open_request(b) -> bool:
@@ -430,6 +510,8 @@ def contact_info(c: Ctx):
 
 MENU = {key: {TEXTS[l][key] for l in TEXTS}
         for key in ('menu_book', 'menu_services', 'menu_my', 'menu_reviews', 'menu_contact', 'menu_lang')}
+# Keyboards already sent to guests still show the button's earlier name
+OLD_SERVICES_BUTTONS = {"🛎 Xonaga buyurtma", "🛎 Заказ в номер"}
 FLOW_STATES = ('dates', 'guests', 'rooms', 'details', 'name', 'phone', 'confirm')
 
 
@@ -499,7 +581,11 @@ def on_message(bot: BotConfig, msg: dict):
     if text in MENU['menu_book'] or text == '/book':
         c.track(msg.get('message_id'))
         return start_booking(c)
-    if text in MENU['menu_services'] or text == '/order':
+    if text in MENU['menu_services'] or text in OLD_SERVICES_BUTTONS:
+        c.clear()
+        c.set_state('')
+        return c.say(*services_hub(c))
+    if text == '/order':
         c.clear()
         c.set_state('')
         return c.say(*room_service(c))
@@ -520,6 +606,12 @@ def on_message(bot: BotConfig, msg: dict):
         c.set_state('')
         return c.ask(TEXTS['uz']['choose_lang'], lang_keyboard())
 
+    if chat.state == 'rs_note' and text:
+        c.set_state('', rs_note=text[:300])
+        return c.say(*room_service(c))
+    if chat.state == 'rq_repair' and text:
+        c.set_state('')
+        return c.say(send_guest_request(c, 'repair', text), main_menu(c.lang))
     if chat.state == 'review' and text:
         svc.save_review_comment(chat, int(chat.data.get('rv') or 0), text)
         c.set_state('', rv=None)
@@ -539,6 +631,58 @@ def on_message(bot: BotConfig, msg: dict):
             return c.ask_more(c.t('bad_guests'))
         return choose_guests(c, int(text))
     return c.say(c.t('unknown'), main_menu(c.lang))
+
+
+def on_services_button(c: Ctx, data: str, edit):
+    """Buttons of the staying guest's services: hub, order screen, note, requests, bill."""
+    if data == 'rs':  # from the check-in message: a new message, the welcome stays
+        return c.say(*services_hub(c))
+    if data == BACK:
+        c.set_state('')
+        return edit(*services_hub(c))
+    if data == 'rso':
+        return edit(*room_service(c))
+    if data.startswith(('rs+:', 'rs-:')):
+        cart, item_id = _cart(c), int(data[4:])
+        cart[item_id] = max(0, cart.get(item_id, 0) + (1 if data[2] == '+' else -1))
+        _save_cart(c, cart)
+        return edit(*room_service(c))  # the screen also cuts the quantity to what is left in stock
+    if data == 'rs0':
+        _save_cart(c, {}, rs_note='')
+        return edit(*room_service(c))
+    if data == 'rsn':
+        c.set_state('rs_note')
+        return c.say(c.t('rs_note_ask'))
+    if data == 'rsok':
+        return edit(*send_room_service_order(c))
+    if data.startswith('rsx:'):
+        return edit(cancel_room_service_order(c, int(data[4:])))
+    if data == 'rsb':  # from the check-out reminder: a new message, the reminder stays
+        return c.say(*bill_view(c))
+    if data == 'rsbh':  # from the hub: in place
+        return edit(*bill_view(c))
+    if data == 'rsbp':
+        from apps.room_service.services import bill, current_stay
+        stay = current_stay(c.chat)
+        if stay and bill(stay)['due'] > 0 and svc.payments_enabled(c.bot):
+            try:
+                svc.send_bill_invoice(stay)
+            except TelegramError as exc:
+                logger.warning('Bill invoice failed: %s', exc)
+                c.say(c.t('precheckout_fail'))
+        return
+    if data == 'rqc':
+        return edit(c.t('rq_cleaning_ask'), {'inline_keyboard': [
+            [{'text': c.t('rq_cleaning_yes'), 'callback_data': 'rqc!'}],
+            [{'text': c.t('back'), 'callback_data': BACK}]]})
+    if data == 'rqc!':
+        return edit(send_guest_request(c, 'cleaning'))
+    if data == 'rqr':
+        from apps.room_service.services import current_stay
+        if not current_stay(c.chat):
+            return edit(c.t('rs_need_stay'))
+        c.set_state('rq_repair')
+        return c.say(c.t('rq_repair_ask'))
 
 
 def on_callback(bot: BotConfig, cq: dict):
@@ -607,22 +751,8 @@ def on_callback(bot: BotConfig, cq: dict):
             return edit(c.t('review_comment', stars='⭐' * int(rating)),
                         {'inline_keyboard': [[{'text': c.t('review_skip'), 'callback_data': 'rvs'}]]})
         return edit(c.t('review_done'))
-    if data == 'rs':
-        return c.say(*room_service(c))
-    if data.startswith(('rs+:', 'rs-:')):
-        from apps.room_service.services import MAX_QUANTITY
-        cart, item_id = _cart(c), int(data[4:])
-        step = 1 if data[2] == '+' else -1
-        cart[item_id] = min(MAX_QUANTITY, max(0, cart.get(item_id, 0) + step))
-        _save_cart(c, cart)
-        return edit(*room_service(c))
-    if data == 'rs0':
-        _save_cart(c, {})
-        return edit(*room_service(c))
-    if data == 'rsok':
-        return edit(*send_room_service_order(c))
-    if data.startswith('rsx:'):
-        return edit(cancel_room_service_order(c, int(data[4:])))
+    if data.startswith('rs') or data.startswith('rq'):
+        return on_services_button(c, data, edit)
     if data.startswith('rvp:'):
         return edit(*reviews_page(c, max(0, int(data[4:]))))  # next/previous page in place
     if data == 'rvl':

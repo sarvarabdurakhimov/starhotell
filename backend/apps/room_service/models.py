@@ -22,6 +22,10 @@ class ServiceItem(TimestampedModel):
     price = models.DecimalField(max_digits=12, decimal_places=2, default=0)  # so'm
     is_active = models.BooleanField(default=True)
     position = models.PositiveSmallIntegerField(default=0)
+    # Stock on hand: empty = not counted. Orders take from it, cancellations give back; at 0 the item
+    # cannot be ordered, and at low_stock or below the managers are warned in Telegram.
+    stock = models.PositiveIntegerField(null=True, blank=True)
+    low_stock = models.PositiveIntegerField(default=5)
 
     class Meta:
         ordering = ['category', 'position', 'name']
@@ -71,3 +75,36 @@ class ServiceOrderLine(models.Model):
     @property
     def amount(self):
         return self.price * self.quantity
+
+
+class RequestKind(models.TextChoices):
+    CLEANING = 'cleaning', 'Xonani tozalash'
+    REPAIR = 'repair', 'Texnik muammo'
+
+
+class RequestStatus(models.TextChoices):
+    NEW = 'new', 'Yangi'
+    ACCEPTED = 'accepted', 'Qabul qilindi'
+    DONE = 'done', 'Bajarildi'
+    CANCELLED = 'cancelled', 'Bekor qilindi'
+
+
+class GuestRequest(TimestampedModel):
+    """A staying guest asks for cleaning or reports a problem in the room (from the Telegram bot)."""
+    hotel = models.ForeignKey('hotels.Hotel', on_delete=models.CASCADE, related_name='guest_requests')
+    booking = models.ForeignKey('bookings.Booking', on_delete=models.CASCADE, related_name='guest_requests')
+    room = models.ForeignKey('rooms.Room', on_delete=models.PROTECT, related_name='guest_requests')
+    telegram_chat = models.ForeignKey('telegram_bot.TelegramChat', on_delete=models.SET_NULL, null=True,
+                                      blank=True, related_name='guest_requests')
+    kind = models.CharField(max_length=20, choices=RequestKind.choices)
+    text = models.CharField(max_length=500, blank=True)
+    status = models.CharField(max_length=20, choices=RequestStatus.choices, default=RequestStatus.NEW, db_index=True)
+    handled_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='+')
+    done_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return f'{self.get_kind_display()} #{self.pk} ({self.room})'

@@ -1,6 +1,7 @@
 """Booking business logic — all reservation operations run in transactions."""
 import logging
 from datetime import date, datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
 from django.db.models import Q
@@ -28,6 +29,25 @@ def check_room_availability(room_id: int, check_in: date, check_out: date, exclu
     if exclude_booking_id:
         qs = qs.exclude(pk=exclude_booking_id)
     return not qs.exists()
+
+
+def loyalty_percent(hotel_id: int, guest_id) -> Decimal:
+    """The returning-guest discount (%) this guest has earned at this hotel, or 0.
+
+    Earned after the hotel's set number of finished stays (checked out); 0 stays in the settings = off.
+    """
+    from apps.hotels.models import HotelSettings
+    s = HotelSettings.objects.filter(hotel_id=hotel_id).first()
+    if not guest_id or not s or not s.loyalty_min_stays or s.loyalty_discount_percent <= 0:
+        return Decimal('0')
+    stays = Booking.objects.filter(hotel_id=hotel_id, guest_id=guest_id, status=BookingStatus.CHECKED_OUT).count()
+    return Decimal(s.loyalty_discount_percent) if stays >= s.loyalty_min_stays else Decimal('0')
+
+
+def loyalty_discount(hotel_id: int, guest_id, amount: Decimal) -> Decimal:
+    """So'm taken off `amount` for a returning guest (whole so'm)."""
+    pct = loyalty_percent(hotel_id, guest_id)
+    return (Decimal(amount) * pct / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP) if pct else Decimal('0')
 
 
 @transaction.atomic
@@ -65,7 +85,8 @@ def create_booking(
 
     nights = (check_out - check_in).days
     rate = room.room_type.base_price
-    total = rate * nights
+    discount = loyalty_discount(hotel_id, guest.id, rate * nights)
+    total = rate * nights - discount
 
     booking = Booking.objects.create(
         hotel_id=hotel_id,
@@ -78,6 +99,7 @@ def create_booking(
         num_children=num_children,
         rate_per_night=rate,
         total_amount=total,
+        discount_amount=discount,
         currency=room.hotel.currency,
         special_requests=special_requests,
         status=status,

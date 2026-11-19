@@ -134,6 +134,30 @@ def find_guest_by_phone(hotel_id: int, phone: str):
     return next((g for g in candidates if _digits(g.phone)[-9:] == tail), None)
 
 
+def chat_loyalty_percent(chat: TelegramChat) -> Decimal:
+    """Returning-guest discount (%) for this chat's guest (linked profile, or the same phone at the desk)."""
+    from apps.bookings.services import loyalty_percent
+    guest_id = chat.guest_id
+    if not guest_id and chat.phone:
+        found = find_guest_by_phone(chat.bot.hotel_id, chat.phone)
+        guest_id = found.id if found else None
+    return loyalty_percent(chat.bot.hotel_id, guest_id)
+
+
+def pct_text(pct: Decimal) -> str:
+    return f'{pct:.0f}' if pct == pct.to_integral_value() else f'{pct.normalize()}'
+
+
+def stay_price_text(chat: TelegramChat, amount: Decimal, pct: Decimal = None) -> str:
+    """The stay's price as the guest will pay it: with a returning guest's discount shown crossed out."""
+    pct = chat_loyalty_percent(chat) if pct is None else pct
+    if not pct:
+        return price_text(chat.bot, amount)
+    # same rounding as apps.bookings.services.loyalty_discount, which sets the booking's real total
+    after = Decimal(amount) - (Decimal(amount) * pct / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+    return f'<s>{price_text(chat.bot, amount)}</s> <b>{price_text(chat.bot, after)}</b> (−{pct_text(pct)}%)'
+
+
 def _guest_for(chat: TelegramChat):
     from apps.guests.models import Guest
     hotel_id = chat.bot.hotel_id
@@ -397,7 +421,48 @@ def payable(booking: Booking, bot: BotConfig, amount_tiyin=None) -> bool:
     return amount_tiyin is None or amount_tiyin == uzs * 100
 
 
+def send_bill_invoice(stay):
+    """Invoice for everything the guest owes for the stay in progress (room balance + unpaid orders)."""
+    from apps.room_service.services import bill, bill_payload
+    chat = stay.telegram_chat
+    bot = chat.bot
+    due = bill(stay)['due']
+    TelegramAPI(bot.token).call(
+        'sendInvoice', chat_id=chat.chat_id,
+        title=t(chat.language, 'bill_invoice_title', room=stay.room.room_number)[:32],
+        description=t(chat.language, 'bill_invoice_desc', hotel=bot.hotel.name, reference=stay.reference)[:255],
+        payload=bill_payload(stay, due), provider_token=bot.payment_provider_token, currency='UZS',
+        prices=[{'label': stay.reference, 'amount': uzs_amount(bot, due) * 100}],
+    )
+
+
+def _bill_pre_checkout(bot: BotConfig, query: dict):
+    from apps.room_service.services import bill_from_payload, bill_still_due
+    stay, amount = bill_from_payload(query.get('invoice_payload', ''))
+    ok = (bill_still_due(stay, amount) and stay.telegram_chat and stay.telegram_chat.bot_id == bot.id
+          and query.get('currency') == 'UZS' and query.get('total_amount') == uzs_amount(bot, amount) * 100)
+    lang = stay.telegram_chat.language if stay and stay.telegram_chat else 'uz'
+    TelegramAPI(bot.token).call('answerPreCheckoutQuery', pre_checkout_query_id=query['id'], ok=bool(ok),
+                                error_message=None if ok else t(lang, 'bill_changed'))
+
+
+def _bill_paid(bot: BotConfig, chat: TelegramChat, sp: dict):
+    from apps.room_service.services import bill_from_payload, record_bill_payment
+    stay, amount = bill_from_payload(sp.get('invoice_payload', ''))
+    charge_id = sp.get('provider_payment_charge_id') or sp.get('telegram_payment_charge_id', '')
+    if stay is None:
+        logger.error('Bill payment %s with unknown payload %s', charge_id, sp.get('invoice_payload'))
+        return
+    extra = {'telegram_payment_charge_id': sp.get('telegram_payment_charge_id'),
+             'uzs_total': sp.get('total_amount', 0) / 100, 'currency': sp.get('currency')}
+    if record_bill_payment(stay, amount, charge_id, bot.payment_provider_name or 'telegram', extra):
+        send(bot, chat.chat_id, t(chat.language, 'bill_paid', amount=som(amount)))
+        notify_managers(bot, f"💳 {stay.room.room_number}-xona ({stay.reference}) hisobini to'ladi: {som(amount)}.")
+
+
 def handle_pre_checkout(bot: BotConfig, query: dict):
+    if query.get('invoice_payload', '').startswith('bill:'):
+        return _bill_pre_checkout(bot, query)
     booking = _booking_from_payload(query.get('invoice_payload', ''))
     ok = payable(booking, bot, query.get('total_amount')) and query.get('currency') == 'UZS'
     lang = booking.telegram_chat.language if booking and booking.telegram_chat else 'uz'
@@ -411,6 +476,8 @@ def handle_pre_checkout(bot: BotConfig, query: dict):
 def handle_successful_payment(bot: BotConfig, chat: TelegramChat, sp: dict):
     from apps.payments.models import Payment, PaymentStatus
 
+    if sp.get('invoice_payload', '').startswith('bill:'):
+        return _bill_paid(bot, chat, sp)
     charge_id = sp.get('provider_payment_charge_id') or sp.get('telegram_payment_charge_id', '')
     if Payment.objects.filter(provider_transaction_id=charge_id).exists():
         return  # already recorded (Telegram retried the update)
@@ -442,3 +509,58 @@ def handle_successful_payment(bot: BotConfig, chat: TelegramChat, sp: dict):
         # Paid after the booking was cancelled: money must go back by hand
         notify_managers(bot, f"⚠️ {booking.reference} uchun to'lov keldi, lekin bron holati: {booking.status}. Pulni qaytarish kerak.")
         logger.error('Payment for %s arrived in status %s', booking.reference, booking.status)
+
+
+# ── reminders (run by the scheduled job) ────────────────────────────────────
+
+def _remind_once(booking: Booking, kind: str) -> bool:
+    """Mark this reminder as sent; False if it already was (so each one goes out once)."""
+    from .models import SentReminder
+    _, created = SentReminder.objects.get_or_create(booking=booking, kind=kind)
+    return created
+
+
+def send_reminders(now=None) -> int:
+    """Tell Telegram guests: the day before arrival (address, check-in time), on the morning of departure
+    (check-out time, with the bill), and once more a day after leaving if they have not rated the stay."""
+    from apps.hotels.models import HotelSettings
+    now = now or timezone.now()
+    sent = 0
+    for bot in BotConfig.objects.filter(is_active=True).select_related('hotel'):
+        hotel = bot.hotel
+        try:
+            local = timezone.localtime(now, ZoneInfo(hotel.timezone))
+        except Exception:
+            local = timezone.localtime(now)
+        today = local.date()
+        s = HotelSettings.objects.filter(hotel=hotel).first()
+        check_in_time = s.check_in_time.strftime('%H:%M') if s and s.check_in_time else '14:00'
+        check_out_time = s.check_out_time.strftime('%H:%M') if s and s.check_out_time else '11:00'
+        mine = Booking.objects.filter(hotel_id=hotel.id, telegram_chat__bot=bot).select_related('telegram_chat', 'room')
+
+        for b in mine.filter(status=BookingStatus.CONFIRMED, check_in=today + timedelta(days=1)):
+            if _remind_once(b, 'arrival'):
+                chat = b.telegram_chat
+                address = ', '.join(x for x in [hotel.address_line1, hotel.city] if x) or '—'
+                send(bot, chat.chat_id, t(chat.language, 'remind_arrival', hotel=html.escape(hotel.name),
+                                          address=html.escape(address), check_in=fmt_date(b.check_in),
+                                          time=check_in_time, phone=hotel.phone or '—', reference=b.reference))
+                sent += 1
+
+        if local.hour >= 8:  # not in the middle of the night
+            for b in mine.filter(status=BookingStatus.CHECKED_IN, check_out=today):
+                if _remind_once(b, 'checkout'):
+                    chat = b.telegram_chat
+                    send(bot, chat.chat_id, t(chat.language, 'remind_checkout', time=check_out_time),
+                         reply_markup={'inline_keyboard': [[{'text': t(chat.language, 'bill_btn'),
+                                                             'callback_data': 'rsb'}]]})
+                    sent += 1
+
+        left = mine.filter(status=BookingStatus.CHECKED_OUT, review__isnull=True,
+                           actual_check_out__lte=now - timedelta(days=1),
+                           actual_check_out__gte=now - timedelta(days=3))
+        for b in left:
+            if _remind_once(b, 'review'):
+                ask_review(b)
+                sent += 1
+    return sent

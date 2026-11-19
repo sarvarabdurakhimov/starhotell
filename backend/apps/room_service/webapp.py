@@ -26,7 +26,7 @@ class ServicesView(WebAppView):
         stay = services.current_stay(self.chat)
         if not stay:
             return Response({'stay': None, 'items': [], 'categories': [], 'orders': []})
-        items = ServiceItem.objects.filter(hotel_id=self.bot.hotel_id, is_active=True)
+        items = services.orderable_items(self.bot.hotel_id)  # sold-out items are hidden
         orders = stay.service_orders.prefetch_related('lines').order_by('-created_at')[:30]
         used = {i.category for i in items}
         return Response({
