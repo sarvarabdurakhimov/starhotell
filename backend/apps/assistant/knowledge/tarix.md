@@ -192,3 +192,6 @@ haqiqiy bazada ishga tushiradi (qaytarib bo'lmaydi) — oldin zaxira nusxa.
   faol emas. Hozircha bot mahalliy kompyuterdagi `run_telegram_bot` (polling) orqali javob beryapti; kompyuter
   o'chsa bot ham jim bo'ladi. Doimiy yechim: production panelda (starhotel.vercel.app) bot tokenini kiritib
   "Faol" holatda saqlash — shunda webhook o'rnatiladi va mahalliy polling to'xtatilishi kerak.
+- 10-vazifa (2026-11-19): Bosh sahifada "Dinamika" va "Bo'limlar" juda tor chiqardi. Sabab: Tailwind
+  `src/screens` papkasini o'qimas edi, shu sababli `lg:col-span-8/4` kabi klasslar CSS'ga tushmagan.
+  `frontend/tailwind.config.ts` content ro'yxatiga `src/screens` va `src/lib` qo'shildi.
