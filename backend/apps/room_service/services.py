@@ -66,17 +66,22 @@ def _notify_guest(order: ServiceOrder, key: str, **kw):
 
 
 def welcome_guest(booking):
-    """After check-in: tell the Telegram guest they can order to the room, with a button to the app's Services tab."""
+    """After check-in: tell the Telegram guest they can order to the room.
+
+    The button opens the Mini App's Services tab when the app has an https address, otherwise the order
+    screen in the chat itself, so ordering never depends on the Mini App being deployed.
+    """
     from apps.telegram_bot.services import send
     from apps.telegram_bot.texts import t
     from apps.telegram_bot.webapp import webapp_url
     chat = booking.telegram_chat
-    url = webapp_url(chat.bot) if chat else ''
-    if not url:
-        return  # without an https Mini App there is nowhere to order from
+    if not chat:
+        return
+    url = webapp_url(chat.bot)
+    button = {'text': t(chat.language, 'stay_services')}
+    button.update({'web_app': {'url': f'{url}?tab=services'}} if url else {'callback_data': 'rs'})
     send(chat.bot, chat.chat_id, t(chat.language, 'stay_welcome', room=booking.room.room_number),
-         reply_markup={'inline_keyboard': [[{'text': t(chat.language, 'stay_services'),
-                                             'web_app': {'url': f'{url}?tab=services'}}]]})
+         reply_markup={'inline_keyboard': [[button]]})
 
 
 def _notify_staff(order: ServiceOrder):

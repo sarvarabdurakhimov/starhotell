@@ -199,3 +199,10 @@ haqiqiy bazada ishga tushiradi (qaytarib bo'lmaydi) — oldin zaxira nusxa.
   solishtirildi. Faqat `/learning` sahifasida Tailwind 3 da yo'q 3 ta klass bor edi (`h-18`,
   `bg-blue-500/8`, `animate-spin-slow`); ular `h-[72px]`, `bg-blue-500/[0.08]`,
   `animate-[spin_20s_linear_infinite]` bilan almashtirildi. Barcha sahifalar ochiladi, TypeScript xatosiz.
+- 12-vazifa (2026-11-19): "Telegram botda narsa zakaz qilib bo'lmayapti". Sabab: buyurtma faqat Mini App'da edi,
+  u esa https (`TELEGRAM_WEBAPP_URL`) talab qiladi va o'rnatilmagan. Endi bot chatining o'zida buyurtma bor:
+  menyuda "🛎 Xonaga buyurtma" tugmasi va `/order` buyrug'i. Narsalar tugma bilan savatga qo'shiladi (➕/➖),
+  "Buyurtma berish" bosiladi, xodimlar xabar oladi, yangi buyurtmani mehmon bekor qila oladi. Joylashganda
+  yuboriladigan xabar https bo'lmasa chatdagi buyurtma ekraniga olib boradi. Testlar: `TestOrderInChat`.
+  Mahalliy bazada: menyu bo'sh (panel → Buyurtmalar → standart menyu), hozir hech kim joylashmagan,
+  `notify_chat_id` ga email yozilgan (Telegram chat ID bo'lishi kerak).

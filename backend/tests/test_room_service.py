@@ -168,6 +168,101 @@ class TestStaffHandling:
         assert api_client.post(url).status_code == 400
 
 
+class ChatAPI:
+    """Stands in for TelegramAPI inside the bot handlers: remembers what the bot shows the guest."""
+    shown = []
+
+    def __init__(self, token):
+        pass
+
+    def call(self, method, **kw):
+        if method in ('sendMessage', 'editMessageText'):
+            ChatAPI.shown.append((kw['text'], kw.get('reply_markup')))
+            return {'message_id': len(ChatAPI.shown)}
+        return True
+
+    def delete_messages(self, chat_id, ids):
+        pass
+
+
+@pytest.fixture
+def chat_bot(monkeypatch):
+    from apps.telegram_bot import handlers
+    ChatAPI.shown = []
+    monkeypatch.setattr(handlers, 'TelegramAPI', ChatAPI)
+
+    def press(ctx, text=None, data=None):
+        from apps.telegram_bot.handlers import handle_update
+        who = {'id': GUEST_ID, 'first_name': 'Aziz'}
+        if data:
+            update = {'callback_query': {'id': 'q', 'from': who, 'data': data,
+                                         'message': {'chat': {'id': GUEST_ID}, 'message_id': 9}}}
+        else:
+            update = {'message': {'chat': {'id': GUEST_ID, 'type': 'private'}, 'from': who,
+                                  'text': text, 'message_id': 1}}
+        handle_update(ctx['bot'], update)
+        return ChatAPI.shown[-1]
+    return press
+
+
+def buttons(markup):
+    return {b['callback_data']: b['text'] for row in (markup or {}).get('inline_keyboard', []) for b in row}
+
+
+@pytest.mark.django_db
+class TestOrderInChat:
+    """Ordering straight in the bot chat: works without the Mini App (no https needed)."""
+
+    def test_menu_button_needs_a_stay(self, hotel_with_guest, chat_bot):
+        text, markup = chat_bot(hotel_with_guest, text="🛎 Xonaga buyurtma")
+        assert 'joylashganingizdan keyin' in text and markup is None
+
+    def test_guest_fills_cart_orders_and_withdraws(self, hotel_with_guest, chat_bot):
+        ctx = hotel_with_guest
+        check_in(ctx)
+        water, towel = ctx['water'].id, ctx['towel'].id
+        text, markup = chat_bot(ctx, text='/order')
+        assert '101-xona' in text and f'rs+:{ctx["hidden"].id}' not in buttons(markup)
+        assert 'bepul' in buttons(markup)[f'rs+:{towel}']
+        chat_bot(ctx, data=f'rs+:{water}')
+        chat_bot(ctx, data=f'rs+:{water}')
+        chat_bot(ctx, data=f'rs+:{towel}')
+        text, markup = chat_bot(ctx, data=f'rs-:{towel}')
+        assert 'Suv × 2' in text and 'Sochiq ×' not in text and '10 000' in text and 'rsok' in buttons(markup)
+
+        text, markup = chat_bot(ctx, data='rsok')
+        order = ServiceOrder.objects.get()
+        assert [(li.name, li.quantity) for li in order.lines.all()] == [('Suv', 2)] and order.total == 10000
+        assert f'#{order.pk}' in text and any('Yangi buyurtma' in x for chat, x in ctx['sent'] if chat == '-100')
+        text, _ = chat_bot(ctx, text='/order')
+        assert "Savat hozircha bo'sh" in text  # the cart is emptied once the order is sent
+
+        text, _ = chat_bot(ctx, data=f'rsx:{order.pk}')
+        order.refresh_from_db()
+        assert order.status == OrderStatus.CANCELLED and 'bekor qilindi' in text
+
+    def test_order_after_check_out_is_refused(self, hotel_with_guest, chat_bot):
+        ctx = hotel_with_guest
+        check_in(ctx)
+        chat_bot(ctx, data=f'rs+:{ctx["water"].id}')
+        transition_booking(ctx['booking'], BookingStatus.CHECKED_OUT, ctx['owner'])
+        text, _ = chat_bot(ctx, data='rsok')
+        assert 'yuborilmadi' in text and not ServiceOrder.objects.exists()
+
+
+@pytest.mark.django_db
+def test_check_in_offers_chat_ordering_without_the_mini_app(api_client, hotel_with_guest, settings):
+    ctx = hotel_with_guest
+    sent_markup = []
+    bot_svc.send = (lambda b, chat_id, text, *a, **kw: sent_markup.append((str(chat_id), text, kw)))
+    settings.TELEGRAM_WEBAPP_URL = ''
+    api_client.force_authenticate(user=ctx['staff'][HotelRole.RECEPTIONIST])
+    url = reverse('bookings:check_in', kwargs={'hotel_id': ctx['hotel'].id, 'pk': ctx['booking'].id})
+    assert api_client.post(url).status_code == 200
+    _, text, kw = next(m for m in sent_markup if m[0] == str(GUEST_ID))
+    assert kw['reply_markup']['inline_keyboard'][0][0]['callback_data'] == 'rs'
+
+
 @pytest.mark.django_db
 def test_check_in_offers_room_service_in_the_bot(api_client, hotel_with_guest, settings):
     ctx = hotel_with_guest

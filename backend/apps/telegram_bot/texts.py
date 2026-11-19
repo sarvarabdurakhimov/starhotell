@@ -48,9 +48,23 @@ TEXTS = {
         'stay_welcome': (
             "🏨 Xush kelibsiz! Siz <b>{room}-xona</b>dasiz.\n\n"
             "Suv, meva, choy, sochiq, ko'rpa, yostiq, ovqat va boshqalarni xonangizga "
-            "ilovadan buyurtma qilishingiz mumkin."
+            "pastdagi tugma orqali buyurtma qilishingiz mumkin."
         ),
         'stay_services': "🛎 Xonaga buyurtma",
+        'menu_services': "🛎 Xonaga buyurtma",
+        'rs_need_stay': "🛎 Xonaga buyurtma mehmonxonaga joylashganingizdan keyin ochiladi.",
+        'rs_empty': "🛎 Hozircha buyurtma menyusi bo'sh. Qabulxonaga murojaat qiling.",
+        'rs_title': "🛎 <b>{room}-xonaga buyurtma</b>\n\nKerakli narsani bosing: har bosishda bittadan qo'shiladi.",
+        'rs_cart': "🧺 <b>Savat:</b>\n{lines}\n\nJami: <b>{total}</b>",
+        'rs_cart_empty': "🧺 Savat hozircha bo'sh.",
+        'rs_send': "✅ Buyurtma berish",
+        'rs_clear': "🗑 Tozalash",
+        'rs_sent': "✅ Buyurtma <b>#{number}</b> yuborildi ({room}-xona).\n{lines}\nJami: <b>{total}</b>\n\nXodimlar qabul qilganda xabar beramiz.",
+        'rs_cancel': "❌ Buyurtmani bekor qilish",
+        'rs_cancelled': "❌ Buyurtma #{number} bekor qilindi.",
+        'rs_too_late': "Buyurtma allaqachon qabul qilingan. Bekor qilish uchun qabulxonaga murojaat qiling.",
+        'rs_failed': "😔 Buyurtma yuborilmadi: {reason}",
+        'rs_free': "bepul",
         'order_delivered': "✅ Buyurtma #{number} yetkazildi. Yoqimli dam oling!",
         'order_cancelled': "❌ Buyurtma #{number} bekor qilindi. Savol bo'lsa, qabulxonaga murojaat qiling.",
         'edit_details': "✏️ Ism yoki telefonni o'zgartirish",
@@ -158,9 +172,23 @@ TEXTS = {
         'order_accepted': "🛎 Заказ #{number} принят, скоро его принесут в ваш номер.",
         'stay_welcome': (
             "🏨 Добро пожаловать! Ваш номер <b>{room}</b>.\n\n"
-            "Воду, фрукты, чай, полотенца, одеяло, подушку, еду и другое можно заказать в номер через приложение."
+            "Воду, фрукты, чай, полотенца, одеяло, подушку, еду и другое можно заказать в номер по кнопке ниже."
         ),
         'stay_services': "🛎 Заказ в номер",
+        'menu_services': "🛎 Заказ в номер",
+        'rs_need_stay': "🛎 Заказ в номер станет доступен после заселения в отель.",
+        'rs_empty': "🛎 Меню заказов пока пусто. Обратитесь на ресепшен.",
+        'rs_title': "🛎 <b>Заказ в номер {room}</b>\n\nНажимайте на нужное: каждое нажатие добавляет одну штуку.",
+        'rs_cart': "🧺 <b>Корзина:</b>\n{lines}\n\nИтого: <b>{total}</b>",
+        'rs_cart_empty': "🧺 Корзина пока пуста.",
+        'rs_send': "✅ Заказать",
+        'rs_clear': "🗑 Очистить",
+        'rs_sent': "✅ Заказ <b>#{number}</b> отправлен (номер {room}).\n{lines}\nИтого: <b>{total}</b>\n\nСообщим, когда персонал его примет.",
+        'rs_cancel': "❌ Отменить заказ",
+        'rs_cancelled': "❌ Заказ #{number} отменён.",
+        'rs_too_late': "Заказ уже принят. Чтобы отменить, обратитесь на ресепшен.",
+        'rs_failed': "😔 Заказ не отправлен: {reason}",
+        'rs_free': "бесплатно",
         'order_delivered': "✅ Заказ #{number} доставлен. Приятного отдыха!",
         'order_cancelled': "❌ Заказ #{number} отменён. Если есть вопросы, обратитесь на ресепшен.",
         'edit_details': "✏️ Изменить имя или телефон",

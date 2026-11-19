@@ -5,6 +5,7 @@ import logging
 from datetime import date, timedelta
 
 from apps.bookings.models import BookingStatus
+from apps.common.money import som
 from apps.rooms.models import RoomType, RoomTypePhoto
 
 from . import services as svc
@@ -71,6 +72,7 @@ def main_menu(lang):
     return {
         'keyboard': [
             [{'text': t(lang, 'menu_book')}],
+            [{'text': t(lang, 'menu_services')}],
             [{'text': t(lang, 'menu_my')}, {'text': t(lang, 'menu_reviews')}],
             [{'text': t(lang, 'menu_contact')}, {'text': t(lang, 'menu_lang')}],
         ],
@@ -271,6 +273,83 @@ def my_bookings(c: Ctx):
         c.say(*booking_card(c, b))
 
 
+# ── room service in the chat (works without the Mini App / https) ────────────
+
+def _cart(c: Ctx) -> dict:
+    """{item id: quantity} kept in the chat's data until the order is sent."""
+    return {int(k): int(v) for k, v in (c.chat.data.get('cart') or {}).items()}
+
+
+def _save_cart(c: Ctx, cart: dict):
+    c.chat.data = {**c.chat.data, 'cart': {str(k): v for k, v in cart.items() if v > 0}}
+    c.chat.save(update_fields=['data', 'updated_at'])
+
+
+def _price(c: Ctx, amount) -> str:
+    return som(amount) if amount else c.t('rs_free')
+
+
+def room_service(c: Ctx):
+    """(text, markup) of the order screen: the menu as buttons, and the cart with its total."""
+    from apps.room_service.models import ServiceItem
+    from apps.room_service.services import MAX_QUANTITY, current_stay
+    stay = current_stay(c.chat)
+    if not stay:
+        return c.t('rs_need_stay'), None
+    items = {i.id: i for i in ServiceItem.objects.filter(hotel_id=c.bot.hotel_id, is_active=True)}
+    if not items:
+        return c.t('rs_empty'), None
+    cart = {i: q for i, q in _cart(c).items() if i in items}  # an item taken off the menu drops out
+    rows = []
+    for item in items.values():
+        in_cart = f' ({cart[item.id]})' if item.id in cart else ''
+        add = {'text': f'➕ {item.name} · {_price(c, item.price)}{in_cart}', 'callback_data': f'rs+:{item.id}'}
+        if cart.get(item.id, 0) >= MAX_QUANTITY:
+            add['callback_data'] = 'noop'
+        rows.append([add] + ([{'text': '➖', 'callback_data': f'rs-:{item.id}'}] if item.id in cart else []))
+    text = c.t('rs_title', room=stay.room.room_number) + '\n\n'
+    if cart:
+        lines = '\n'.join(f'• {html.escape(items[i].name)} × {q}' for i, q in cart.items())
+        total = sum((items[i].price * q for i, q in cart.items()), 0)
+        text += c.t('rs_cart', lines=lines, total=som(total))
+        rows.append([{'text': c.t('rs_clear'), 'callback_data': 'rs0'},
+                     {'text': c.t('rs_send'), 'callback_data': 'rsok'}])
+    else:
+        text += c.t('rs_cart_empty')
+    return text, {'inline_keyboard': rows}
+
+
+def send_room_service_order(c: Ctx):
+    """(text, markup) after the guest presses "send": the order, or why it was not placed."""
+    from rest_framework.exceptions import ValidationError
+    from apps.room_service.services import create_order
+    cart = _cart(c)
+    if not cart:
+        return room_service(c)
+    try:
+        order = create_order(c.chat, [{'id': i, 'quantity': q} for i, q in cart.items()])
+    except ValidationError as exc:
+        detail = exc.detail.get('detail') if isinstance(exc.detail, dict) else exc.detail
+        return c.t('rs_failed', reason=html.escape(str(detail))), None
+    _save_cart(c, {})
+    lines = '\n'.join(f'• {html.escape(li.name)} × {li.quantity}' for li in order.lines.all())
+    return (c.t('rs_sent', number=order.pk, room=order.room.room_number, lines=lines, total=som(order.total)),
+            {'inline_keyboard': [[{'text': c.t('rs_cancel'), 'callback_data': f'rsx:{order.pk}'}]]})
+
+
+def cancel_room_service_order(c: Ctx, order_id: int) -> str:
+    from rest_framework.exceptions import ValidationError
+    from apps.room_service.services import cancel_by_guest
+    order = c.chat.service_orders.filter(pk=order_id).select_related('room', 'telegram_chat__bot').first()
+    if not order:
+        return c.t('rs_too_late')
+    try:
+        cancel_by_guest(order)
+    except ValidationError:
+        return c.t('rs_too_late')
+    return c.t('rs_cancelled', number=order.pk)
+
+
 def is_open_request(b) -> bool:
     """A request the manager has not answered yet: the guest may withdraw it at once."""
     return b.status == BookingStatus.PENDING and not b.approved_at
@@ -349,7 +428,8 @@ def contact_info(c: Ctx):
 
 # ── dispatch ────────────────────────────────────────────────────────────────
 
-MENU = {key: {TEXTS[l][key] for l in TEXTS} for key in ('menu_book', 'menu_my', 'menu_reviews', 'menu_contact', 'menu_lang')}
+MENU = {key: {TEXTS[l][key] for l in TEXTS}
+        for key in ('menu_book', 'menu_services', 'menu_my', 'menu_reviews', 'menu_contact', 'menu_lang')}
 FLOW_STATES = ('dates', 'guests', 'rooms', 'details', 'name', 'phone', 'confirm')
 
 
@@ -419,6 +499,10 @@ def on_message(bot: BotConfig, msg: dict):
     if text in MENU['menu_book'] or text == '/book':
         c.track(msg.get('message_id'))
         return start_booking(c)
+    if text in MENU['menu_services'] or text == '/order':
+        c.clear()
+        c.set_state('')
+        return c.say(*room_service(c))
     if text in MENU['menu_my']:
         c.clear()
         c.set_state('')
@@ -523,6 +607,22 @@ def on_callback(bot: BotConfig, cq: dict):
             return edit(c.t('review_comment', stars='⭐' * int(rating)),
                         {'inline_keyboard': [[{'text': c.t('review_skip'), 'callback_data': 'rvs'}]]})
         return edit(c.t('review_done'))
+    if data == 'rs':
+        return c.say(*room_service(c))
+    if data.startswith(('rs+:', 'rs-:')):
+        from apps.room_service.services import MAX_QUANTITY
+        cart, item_id = _cart(c), int(data[4:])
+        step = 1 if data[2] == '+' else -1
+        cart[item_id] = min(MAX_QUANTITY, max(0, cart.get(item_id, 0) + step))
+        _save_cart(c, cart)
+        return edit(*room_service(c))
+    if data == 'rs0':
+        _save_cart(c, {})
+        return edit(*room_service(c))
+    if data == 'rsok':
+        return edit(*send_room_service_order(c))
+    if data.startswith('rsx:'):
+        return edit(cancel_room_service_order(c, int(data[4:])))
     if data.startswith('rvp:'):
         return edit(*reviews_page(c, max(0, int(data[4:]))))  # next/previous page in place
     if data == 'rvl':
