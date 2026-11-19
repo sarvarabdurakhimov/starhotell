@@ -233,3 +233,6 @@ haqiqiy bazada ishga tushiradi (qaytarib bo'lmaydi) — oldin zaxira nusxa.
   - Cron o'rniga backend konteynerida har 5 daqiqada `expire_telegram_requests` (eslatmalar, muddati o'tganlar,
     webhook tekshiruvi) — `Dockerfile.railway`.
   - Yangi kodni yuklash: loyiha ildizidan `railway up -s backend`, frontend: `railway up frontend --path-as-root -s frontend`.
+  - Mahalliy ma'lumotlar (7 foydalanuvchi, mehmonxona, 42 xona, 21 mehmon, 10 bron, bot, menyu va h.k.) serverga
+    ko'chirildi. @starhotell_bot endi serverda (webhook), menyu tugmasi Mini App'ni ochadi; mahalliy polling
+    to'xtatildi. Panel: https://frontend-production-775fb9b8.up.railway.app (eski login/parollar bilan).
