@@ -11,7 +11,9 @@ class RoomTypeSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'created_at')
 
     def get_photos(self, obj):
-        return [{'id': pid, 'url': f'/api/v1/rooms/photos/{pid}.jpg'} for pid in obj.photos.values_list('id', flat=True)]
+        return [
+            {'id': pid, 'url': f'/api/v1/rooms/photos/{pid}.jpg'} for pid in obj.photos.values_list('id', flat=True)
+        ]
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -40,7 +42,10 @@ class RoomSerializer(serializers.ModelSerializer):
                 status=BookingStatus.CHECKED_IN,
             ).exists()
             if has_active_booking:
-                raise serializers.ValidationError({
-                    'status': 'Xonada ayni vaqtda yashayotgan mehmon mavjud. Mehmon checkout qilmasdan xonani mavjud (available) deb belgilab bo‘lmaydi.'
-                })
+                raise serializers.ValidationError(
+                    {
+                        'status': 'Xonada ayni vaqtda yashayotgan mehmon mavjud. '
+                        'Mehmon checkout qilmasdan xonani mavjud (available) deb belgilab bo‘lmaydi.'
+                    }
+                )
         return attrs

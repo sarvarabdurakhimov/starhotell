@@ -1,7 +1,7 @@
 """Manager Daily Operations Reporting View — real-time operational oversight for Hotel Managers."""
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -30,15 +30,8 @@ class ManagerOperationsDashboardView(APIView):
         today = date.today()
         filter_type = request.query_params.get('filter', 'today')
 
-        if filter_type == 'last_7_days':
-            range_start = today - timedelta(days=6)
-            range_end = today
-        elif filter_type == 'this_month':
-            range_start = today.replace(day=1)
-            range_end = today
-        else:
-            range_start = today
-            range_end = today
+        # TODO: filter_type (today / last_7_days / this_month) javobda qaytadi, lekin raqamlarga hali ta'sir
+        # qilmaydi: avval davr (range_start/range_end) hisoblanib, hech qayerda ishlatilmasdi (flake8 F841).
 
         # 1. Room Inventory Breakdown
         total_rooms = Room.objects.filter(hotel_id=hotel_id).count()
@@ -82,7 +75,7 @@ class ManagerOperationsDashboardView(APIView):
         # 3. Housekeeping Statuses & Overdue Tasks
         hk_counts = HousekeepingTask.objects.filter(hotel_id=hotel_id).values('status').annotate(count=Count('id'))
         hk_map = {item['status']: item['count'] for item in hk_counts}
-        
+
         dirty_tasks = hk_map.get(HousekeepingStatus.DIRTY, 0)
         in_progress_tasks = hk_map.get(HousekeepingStatus.IN_PROGRESS, 0)
         clean_tasks = hk_map.get(HousekeepingStatus.CLEAN, 0)

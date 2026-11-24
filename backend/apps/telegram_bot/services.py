@@ -241,13 +241,16 @@ def approve(booking: Booking, user) -> str:
             send_invoice(booking)
         except TelegramError as exc:
             logger.warning('Invoice for %s failed: %s', booking.reference, exc)
-            return f"Tasdiqlandi, lekin to'lov xabari yuborilmadi: {exc}. Mijoz botda \"Mening bronlarim\" orqali to'lashi mumkin."
+            return (f"Tasdiqlandi, lekin to'lov xabari yuborilmadi: {exc}. "
+                    "Mijoz botda \"Mening bronlarim\" orqali to'lashi mumkin.")
         return f"Tasdiqlandi. Mijozga to'lov yuborildi ({local_dt(bot, booking.payment_due_at)} gacha)."
 
     booking.save(update_fields=['approved_at', 'updated_at'])
     transition_booking(booking, BookingStatus.CONFIRMED, user, 'Approved (no online payment configured).')
     if bot:
-        notify_guest(booking, 'approved_no_payment', check_in=fmt_date(booking.check_in), check_out=fmt_date(booking.check_out))
+        notify_guest(
+            booking, 'approved_no_payment', check_in=fmt_date(booking.check_in), check_out=fmt_date(booking.check_out)
+        )
     return "Tasdiqlandi. Onlayn to'lov sozlanmagan, shuning uchun bron to'lovsiz tasdiqlandi."
 
 
@@ -335,8 +338,11 @@ def save_review_comment(chat: TelegramChat, booking_id: int, text: str):
     if review and not review.comment:
         review.comment = text[:1000]
         review.save(update_fields=['comment', 'updated_at'])
-        notify_managers(chat.bot, f"💬 {html.escape(review.guest.full_name)} ({review.rating}/5, {review.booking.reference}):\n"
-                                  f"{html.escape(review.comment)}")
+        notify_managers(
+            chat.bot,
+            f"💬 {html.escape(review.guest.full_name)} ({review.rating}/5, {review.booking.reference}):\n"
+            f"{html.escape(review.comment)}",
+        )
 
 
 def withdraw_request(booking: Booking):
@@ -507,10 +513,16 @@ def handle_successful_payment(bot: BotConfig, chat: TelegramChat, sp: dict):
             chat.language, 'paid', reference=booking.reference,
             check_in=fmt_date(booking.check_in), check_out=fmt_date(booking.check_out),
         ))
-        notify_managers(bot, f"💳 {booking.reference} uchun to'lov keldi: {price_text(bot, booking.total_amount)}. Bron tasdiqlandi.")
+        notify_managers(
+            bot,
+            f"💳 {booking.reference} uchun to'lov keldi: {price_text(bot, booking.total_amount)}. Bron tasdiqlandi.",
+        )
     else:
         # Paid after the booking was cancelled: money must go back by hand
-        notify_managers(bot, f"⚠️ {booking.reference} uchun to'lov keldi, lekin bron holati: {booking.status}. Pulni qaytarish kerak.")
+        notify_managers(
+            bot,
+            f"⚠️ {booking.reference} uchun to'lov keldi, lekin bron holati: {booking.status}. Pulni qaytarish kerak.",
+        )
         logger.error('Payment for %s arrived in status %s', booking.reference, booking.status)
 
 

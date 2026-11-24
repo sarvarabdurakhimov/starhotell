@@ -20,8 +20,11 @@ class Command(BaseCommand):
     help = 'Run all active hotel Telegram bots with long polling.'
 
     def add_arguments(self, parser):
-        parser.add_argument('--force', action='store_true',
-                            help='Take the bot over even if a server webhook is set (the server stops getting messages).')
+        parser.add_argument(
+            '--force',
+            action='store_true',
+            help='Take the bot over even if a server webhook is set (the server stops getting messages).',
+        )
 
     def handle(self, *args, **opts):
         # A webhook means a deployed server (e.g. Railway) is serving this bot. Polling here would remove it.

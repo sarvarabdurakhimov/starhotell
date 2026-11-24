@@ -29,7 +29,9 @@ class Ctx:
 
     def say(self, text, markup=None):
         """A message that stays in the chat (results, notices)."""
-        return self.api.call('sendMessage', chat_id=self.chat.chat_id, text=text, parse_mode='HTML', reply_markup=markup)
+        return self.api.call(
+            'sendMessage', chat_id=self.chat.chat_id, text=text, parse_mode='HTML', reply_markup=markup
+        )
 
     # The current question and the guest's answers to it are tracked, and removed
     # as soon as the next question is asked, so only the open question is on screen.
@@ -93,9 +95,17 @@ def month_keyboard(lang, kind, year, month, min_day: date, max_day: date):
     prev_m = date(year, month, 1) - timedelta(days=1)
     next_m = date(year, month, calendar.monthrange(year, month)[1]) + timedelta(days=1)
     nav = []
-    nav.append({'text': '◀️', 'callback_data': f'cal:{kind}:{prev_m:%Y-%m}'} if prev_m >= min_day.replace(day=1) else {'text': ' ', 'callback_data': 'noop'})
+    nav.append(
+        {'text': '◀️', 'callback_data': f'cal:{kind}:{prev_m:%Y-%m}'}
+        if prev_m >= min_day.replace(day=1)
+        else {'text': ' ', 'callback_data': 'noop'}
+    )
     nav.append({'text': f"{t(lang, 'months')[month - 1]} {year}", 'callback_data': 'noop'})
-    nav.append({'text': '▶️', 'callback_data': f'cal:{kind}:{next_m:%Y-%m}'} if next_m <= max_day else {'text': ' ', 'callback_data': 'noop'})
+    nav.append(
+        {'text': '▶️', 'callback_data': f'cal:{kind}:{next_m:%Y-%m}'}
+        if next_m <= max_day
+        else {'text': ' ', 'callback_data': 'noop'}
+    )
     rows.append(nav)
     rows.append([{'text': w, 'callback_data': 'noop'} for w in t(lang, 'weekdays')])
     for week in calendar.Calendar().monthdayscalendar(year, month):
@@ -117,7 +127,10 @@ def month_keyboard(lang, kind, year, month, min_day: date, max_day: date):
 
 def guests_keyboard(lang, max_guests):
     nums = list(range(1, max(max_guests, 1) + 1))[:8]
-    rows = [[{'text': t(lang, 'guests_n', n=n), 'callback_data': f'g:{n}'} for n in nums[i:i + 4]] for i in range(0, len(nums), 4)]
+    rows = [
+        [{'text': t(lang, 'guests_n', n=n), 'callback_data': f'g:{n}'} for n in nums[i : i + 4]]
+        for i in range(0, len(nums), 4)
+    ]
     rows.append([{'text': t(lang, 'back'), 'callback_data': 'book'}])
     return {'inline_keyboard': rows}
 
@@ -444,7 +457,11 @@ def guest_can_cancel(c: Ctx, b) -> bool:
 def booking_card(c: Ctx, b):
     st = c.t('status')
     if b.status == BookingStatus.PENDING:
-        status = st['to_pay'].format(due=svc.local_dt(c.bot, b.payment_due_at)) if b.approved_at and b.payment_due_at else st['waiting']
+        status = (
+            st['to_pay'].format(due=svc.local_dt(c.bot, b.payment_due_at))
+            if b.approved_at and b.payment_due_at
+            else st['waiting']
+        )
     else:
         status = st.get(b.status, b.status)
     if b.cancel_requested_at and b.status in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
@@ -496,8 +513,15 @@ def leave_review(c: Ctx):
     if not b:
         return c.say(c.t('reviews_need_stay'))
     rows = [[{'text': '⭐' * n, 'callback_data': f'rv:{b.id}:{n}'}] for n in range(5, 0, -1)]
-    return c.say(c.t('reviews_pick', reference=b.reference, check_in=svc.fmt_date(b.check_in), check_out=svc.fmt_date(b.check_out)),
-                 {'inline_keyboard': rows})
+    return c.say(
+        c.t(
+            'reviews_pick',
+            reference=b.reference,
+            check_in=svc.fmt_date(b.check_in),
+            check_out=svc.fmt_date(b.check_out),
+        ),
+        {'inline_keyboard': rows},
+    )
 
 
 def contact_info(c: Ctx):
@@ -508,7 +532,7 @@ def contact_info(c: Ctx):
 
 # ── dispatch ────────────────────────────────────────────────────────────────
 
-MENU = {key: {TEXTS[l][key] for l in TEXTS}
+MENU = {key: {TEXTS[lang][key] for lang in TEXTS}
         for key in ('menu_book', 'menu_services', 'menu_my', 'menu_reviews', 'menu_contact', 'menu_lang')}
 # Keyboards already sent to guests still show the button's earlier name
 OLD_SERVICES_BUTTONS = {"🛎 Xonaga buyurtma", "🛎 Заказ в номер"}
@@ -737,7 +761,10 @@ def on_callback(bot: BotConfig, cq: dict):
         if rt:
             for p in list(rt.photos.all())[1:10]:
                 c.track((_send_photo(c, p) or {}).get('message_id'))
-            c.ask_more(f'<b>{rt.name}</b>', {'inline_keyboard': [[{'text': c.t('choose_room'), 'callback_data': f'rt:{rt.id}'}]]})
+            c.ask_more(
+                f'<b>{rt.name}</b>',
+                {'inline_keyboard': [[{'text': c.t('choose_room'), 'callback_data': f'rt:{rt.id}'}]]},
+            )
         return
     if data.startswith('rt:') and chat.data.get('guests'):
         if svc.open_request(chat):
@@ -766,7 +793,9 @@ def on_callback(bot: BotConfig, cq: dict):
             return start_booking(c)  # tells the guest booking is not possible
         if svc.open_request(chat):
             return start_booking(c)
-        booking = svc.create_request(chat, int(d['rt']), date.fromisoformat(d['ci']), date.fromisoformat(d['co']), int(d['guests']))
+        booking = svc.create_request(
+            chat, int(d['rt']), date.fromisoformat(d['ci']), date.fromisoformat(d['co']), int(d['guests'])
+        )
         c.clear()
         if not booking:
             c.say(c.t('room_taken'))
@@ -782,7 +811,11 @@ def on_callback(bot: BotConfig, cq: dict):
         c.set_state('')
         return c.say(c.t('cancelled_flow'))
     if data.startswith('pay:'):
-        b = chat.bookings.filter(pk=int(data[4:])).select_related('room__room_type', 'telegram_chat__bot__hotel').first()
+        b = (
+            chat.bookings.filter(pk=int(data[4:]))
+            .select_related('room__room_type', 'telegram_chat__bot__hotel')
+            .first()
+        )
         if b and svc.payable(b, bot) and svc.payments_enabled(bot):
             try:
                 svc.send_invoice(b)
@@ -806,11 +839,20 @@ def on_callback(bot: BotConfig, cq: dict):
             return edit(c.t('cancel_too_late'))
         if kind == 'cx':
             return edit(
-                c.t('cancel_ask', reference=b.reference, check_in=svc.fmt_date(b.check_in), check_out=svc.fmt_date(b.check_out)),
-                {'inline_keyboard': [[
-                    {'text': c.t('cancel_yes'), 'callback_data': f'cxy:{b.id}'},
-                    {'text': c.t('cancel_no'), 'callback_data': f'cxn:{b.id}'},
-                ]]},
+                c.t(
+                    'cancel_ask',
+                    reference=b.reference,
+                    check_in=svc.fmt_date(b.check_in),
+                    check_out=svc.fmt_date(b.check_out),
+                ),
+                {
+                    'inline_keyboard': [
+                        [
+                            {'text': c.t('cancel_yes'), 'callback_data': f'cxy:{b.id}'},
+                            {'text': c.t('cancel_no'), 'callback_data': f'cxn:{b.id}'},
+                        ]
+                    ]
+                },
             )
         svc.request_cancel(b)  # kind == 'cxy': the manager decides in the panel
         return edit(c.t('cancel_sent', reference=b.reference))

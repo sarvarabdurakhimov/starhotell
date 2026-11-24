@@ -6,7 +6,7 @@ from apps.telegram_bot import services as bot_svc
 from apps.telegram_bot.webapp import WebAppView
 
 from . import services
-from .models import ItemCategory, OrderStatus, ServiceItem
+from .models import ItemCategory, OrderStatus
 
 
 def _order(o) -> dict:

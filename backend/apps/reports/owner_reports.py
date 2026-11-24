@@ -1,16 +1,15 @@
 """Executive financial & operational reports scoped strictly to the authorized hotel."""
 import csv
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from apps.payments.refunds import PAID_STATUSES
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum
 from django.http import HttpResponse
-from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from apps.common.permissions import IsHotelOwner, IsHotelManager
+from apps.common.permissions import IsHotelOwner
 from apps.bookings.models import Booking, BookingStatus
 from apps.rooms.models import Room, RoomStatus
 from apps.payments.models import Payment, PaymentStatus
@@ -165,11 +164,14 @@ class OwnerExecutiveDashboardView(APIView):
         # 4. Operational Alerts for Owner
         alerts = []
         if outstanding_balance > Decimal('5000.00'):
-            alerts.append({
-                'type': 'warning',
-                'title': 'High Outstanding Balances',
-                'message': f'Outstanding balance for active guests is {outstanding_balance:,.2f}. Review front desk payment collections.'
-            })
+            alerts.append(
+                {
+                    'type': 'warning',
+                    'title': 'High Outstanding Balances',
+                    'message': f'Outstanding balance for active guests is {outstanding_balance:,.2f}. '
+                    'Review front desk payment collections.',
+                }
+            )
 
         if occupancy_rate >= 90.0:
             alerts.append({
@@ -178,11 +180,14 @@ class OwnerExecutiveDashboardView(APIView):
                 'message': f'Current occupancy is at {occupancy_rate}%. Consider optimizing dynamic room rate yield.'
             })
         elif occupancy_rate < 30.0 and total_rooms > 0:
-            alerts.append({
-                'type': 'info',
-                'title': 'Low Occupancy Window',
-                'message': f'Current occupancy is at {occupancy_rate}%. Review channel distribution and promotional packages.'
-            })
+            alerts.append(
+                {
+                    'type': 'info',
+                    'title': 'Low Occupancy Window',
+                    'message': f'Current occupancy is at {occupancy_rate}%. '
+                    'Review channel distribution and promotional packages.',
+                }
+            )
 
         pending_expenses_count = Expense.objects.filter(
             hotel_id=hotel_id,
@@ -262,7 +267,9 @@ class FinancialReportExportView(APIView):
     def get(self, request, hotel_id):
         start_date, end_date, _ = parse_date_range(request)
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="starhotel_financial_report_{hotel_id}_{start_date}_{end_date}.csv"'
+        response['Content-Disposition'] = (
+            f'attachment; filename="starhotel_financial_report_{hotel_id}_{start_date}_{end_date}.csv"'
+        )
 
         writer = csv.writer(response)
         writer.writerow(['StarHotel Financial Audit Report'])

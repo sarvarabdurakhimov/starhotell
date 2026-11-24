@@ -222,7 +222,13 @@ class RoomTypePhotoListView(APIView):
             return Response({'detail': 'Rasm tanlang.'}, status=400)
         room_left = MAX_PHOTOS - rt.photos.count()
         if len(files) > room_left:
-            return Response({'detail': f"Bitta xona turiga ko'pi bilan {MAX_PHOTOS} ta rasm. Yana {max(room_left, 0)} ta qo'shish mumkin."}, status=400)
+            return Response(
+                {
+                    'detail': f"Bitta xona turiga ko'pi bilan {MAX_PHOTOS} ta rasm. "
+                    f"Yana {max(room_left, 0)} ta qo'shish mumkin."
+                },
+                status=400,
+            )
         created = []
         last = rt.photos.order_by('-position').values_list('position', flat=True).first() or 0
         for i, f in enumerate(files, start=1):
