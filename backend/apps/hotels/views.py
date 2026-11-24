@@ -1,11 +1,10 @@
 """Hotel API views — tenant-scoped."""
 from django.utils.text import slugify
-from rest_framework import generics, status
+from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 
 from apps.memberships.models import HotelMembership, HotelRole
-from apps.common.permissions import IsHotelManager, IsPlatformAdmin
+from apps.common.permissions import IsHotelManager
 
 from .models import Hotel, HotelSettings
 from .serializers import HotelSerializer, HotelCreateSerializer

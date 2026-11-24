@@ -3,7 +3,6 @@ import zoneinfo
 from django.db import models
 
 from apps.common.money import CURRENCY, CURRENCY_CHOICES
-from django.conf import settings
 from apps.common.models import TimestampedModel
 from apps.organizations.models import Organization
 

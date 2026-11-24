@@ -1,13 +1,11 @@
 import pytest
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from django.urls import reverse
 from rest_framework import status
 
 from apps.memberships.models import HotelRole, HotelMembership
 from apps.payments.expenses import Expense, ExpenseCategory, ExpenseStatus
-from apps.payments.models import Payment, PaymentStatus
-from apps.bookings.models import Booking, BookingStatus
 
 
 @pytest.mark.django_db

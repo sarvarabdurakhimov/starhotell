@@ -2,7 +2,6 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 from apps.guests.models import Guest
-from apps.rooms.models import Room, RoomType
 
 
 @pytest.mark.django_db

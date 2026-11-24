@@ -4,8 +4,7 @@ from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
-from django.db.models import Q
-from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.exceptions import ValidationError
 
 from apps.rooms.models import Room
 from .models import Booking, BookingAuditLog, BookingStatus
@@ -162,5 +161,11 @@ def transition_booking(booking: Booking, new_status: str, changed_by, notes: str
         notes=notes,
     )
 
-    logger.info('Booking %s transitioned %s -> %s by %s', booking.reference, old_status, new_status, changed_by.email if changed_by else 'system')
+    logger.info(
+        'Booking %s transitioned %s -> %s by %s',
+        booking.reference,
+        old_status,
+        new_status,
+        changed_by.email if changed_by else 'system',
+    )
     return booking

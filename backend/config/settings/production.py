@@ -1,6 +1,6 @@
 """Production settings."""
 from .base import *  # noqa: F401, F403
-from .base import env, SIMPLE_JWT, REST_FRAMEWORK, LOGGING
+from .base import env, SIMPLE_JWT, LOGGING
 
 DEBUG = False
 

@@ -1,9 +1,7 @@
 from datetime import date, timedelta
 import pytest
-from django.urls import reverse
-from rest_framework import status
 from apps.guests.models import Guest
-from apps.bookings.models import Booking, BookingStatus
+from apps.bookings.models import BookingStatus
 from apps.bookings.services import create_booking, transition_booking
 
 

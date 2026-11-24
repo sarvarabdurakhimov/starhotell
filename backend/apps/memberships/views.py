@@ -71,7 +71,10 @@ class InviteMemberView(APIView):
 
         if role == 'owner':
             return Response(
-                {'detail': 'Ownership cannot be assigned via invitation. Ownership transfer requires explicit superuser/board action.'},
+                {
+                    'detail': 'Ownership cannot be assigned via invitation. '
+                    'Ownership transfer requires explicit superuser/board action.'
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -108,7 +111,9 @@ class InviteMemberView(APIView):
                 try:
                     validate_password(password, user=User(email=email, first_name=first_name))
                 except DjangoValidationError as exc:
-                    errors['password'] = [PASSWORD_ERRORS_UZ.get(e.code, m) for e, m in zip(exc.error_list, exc.messages)]
+                    errors['password'] = [
+                        PASSWORD_ERRORS_UZ.get(e.code, m) for e, m in zip(exc.error_list, exc.messages)
+                    ]
             if errors:
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
             with transaction.atomic():
@@ -270,11 +275,17 @@ class SetMemberPasswordView(APIView):
         ).exists()
 
         if user == request.user:
-            return Response({'detail': "O'z parolingizni profil orqali o'zgartiring."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'detail': "O'z parolingizni profil orqali o'zgartiring."}, status=status.HTTP_400_BAD_REQUEST
+            )
         if membership.role == 'owner' or user.is_superuser or user.is_staff:
-            return Response({'detail': "Bu akkauntning parolini o'zgartirib bo'lmaydi."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {'detail': "Bu akkauntning parolini o'zgartirib bo'lmaydi."}, status=status.HTTP_403_FORBIDDEN
+            )
         if membership.role == 'manager' and not is_owner:
-            return Response({'detail': "Menejer parolini faqat boshliq o'zgartira oladi."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {'detail': "Menejer parolini faqat boshliq o'zgartira oladi."}, status=status.HTTP_403_FORBIDDEN
+            )
         # Only a login this hotel created itself may be reset here; an account the person made
         # (or another hotel made) belongs to them.
         if not membership.account_created:

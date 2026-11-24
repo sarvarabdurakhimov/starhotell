@@ -1,6 +1,5 @@
 """Authentication and user management API views."""
 import logging
-from datetime import datetime, timezone
 
 from django.conf import settings
 from rest_framework import status, generics

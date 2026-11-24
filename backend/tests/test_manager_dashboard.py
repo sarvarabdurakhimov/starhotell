@@ -6,8 +6,7 @@ from rest_framework import status
 
 from apps.memberships.models import HotelRole, HotelMembership
 from apps.bookings.models import Booking, BookingStatus
-from apps.rooms.models import Room, RoomStatus
-from apps.housekeeping.models import HousekeepingTask, HousekeepingStatus
+from apps.rooms.models import RoomStatus
 
 
 @pytest.mark.django_db
@@ -96,7 +95,9 @@ class TestManagerDashboardPermissionsAndOperations:
         response = api_client.delete(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_room_cannot_be_marked_available_when_guest_checked_in(self, api_client, hotel_factory, user_factory, room_factory, guest_factory):
+    def test_room_cannot_be_marked_available_when_guest_checked_in(
+        self, api_client, hotel_factory, user_factory, room_factory, guest_factory
+    ):
         hotel, owner = hotel_factory(name='StarHotel Grand')
         manager_user = user_factory(email='manager@starhotel.com')
         HotelMembership.objects.create(

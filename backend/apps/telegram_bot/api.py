@@ -28,7 +28,9 @@ class TelegramError(Exception):
 class _IPv4HTTPSConnection(http.client.HTTPSConnection):
     def connect(self):
         last_exc = None
-        for family, type_, proto, _, addr in socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM):
+        for family, type_, proto, _, addr in socket.getaddrinfo(
+            self.host, self.port, socket.AF_INET, socket.SOCK_STREAM
+        ):
             sock = None
             try:
                 sock = socket.socket(family, type_, proto)

@@ -24,7 +24,9 @@ class Payment(TimestampedModel):
     hotel = models.ForeignKey('hotels.Hotel', on_delete=models.PROTECT, related_name='payments')
 
     idempotency_key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    status = models.CharField(max_length=30, choices=PaymentStatus.choices, default=PaymentStatus.PENDING, db_index=True)
+    status = models.CharField(
+        max_length=30, choices=PaymentStatus.choices, default=PaymentStatus.PENDING, db_index=True
+    )
 
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=3, default=CURRENCY, choices=CURRENCY_CHOICES, editable=False)
@@ -47,5 +49,5 @@ class Payment(TimestampedModel):
         return f'Payment {self.idempotency_key} ({self.status})'
 
 
-from .expenses import Expense, ExpenseCategory, ExpenseStatus
-
+# Expense modellari Django ro'yxatiga shu yerdan kiradi (import ishlatilmasa ham kerak)
+from .expenses import Expense, ExpenseCategory, ExpenseStatus  # noqa: E402,F401

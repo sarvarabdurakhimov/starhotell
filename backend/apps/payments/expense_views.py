@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from apps.common.permissions import IsHotelOwner, IsHotelManager
-from .expenses import Expense, ExpenseCategory, ExpenseStatus
+from .expenses import Expense, ExpenseStatus
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
@@ -57,7 +57,12 @@ class ExpenseListCreateView(generics.ListCreateAPIView):
         serializer.save(
             hotel_id=hotel_id,
             recorded_by=self.request.user,
-            status=ExpenseStatus.APPROVED if hasattr(self.request.user, 'hotel_memberships') and self.request.user.hotel_memberships.filter(hotel_id=hotel_id, role='owner').exists() else ExpenseStatus.PENDING_APPROVAL
+            status=(
+                ExpenseStatus.APPROVED
+                if hasattr(self.request.user, 'hotel_memberships')
+                and self.request.user.hotel_memberships.filter(hotel_id=hotel_id, role='owner').exists()
+                else ExpenseStatus.PENDING_APPROVAL
+            ),
         )
 
 

@@ -20,7 +20,7 @@ class TestUserAuthentication:
         assert User.objects.filter(email='newuser@example.com').exists()
 
     def test_login_sets_cookie_and_tokens(self, api_client, user_factory):
-        user = user_factory(email='login@example.com', password='password123')
+        user_factory(email='login@example.com', password='password123')
         url = reverse('users:login')
         response = api_client.post(url, {'email': 'login@example.com', 'password': 'password123'})
         assert response.status_code == status.HTTP_200_OK

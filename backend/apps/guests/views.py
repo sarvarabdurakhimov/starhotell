@@ -14,7 +14,8 @@ from .serializers import GuestSerializer
 
 
 def with_history(qs):
-    """Add visit stats: finished stays, bookings, cancellations, money kept (paid minus refunded), last visit, rating."""
+    """Add visit stats: finished stays, bookings, cancellations, money kept (paid minus refunded),
+    last visit, rating."""
     from apps.bookings.models import BookingStatus
     from apps.payments.models import Payment
     from apps.payments.refunds import PAID_STATUSES
@@ -29,8 +30,12 @@ def with_history(qs):
     return qs.annotate(
         stays=Count('bookings', filter=Q(bookings__status=BookingStatus.CHECKED_OUT), distinct=True),
         bookings_count=Count('bookings', distinct=True),
-        cancellations=Count('bookings', filter=Q(bookings__status__in=[BookingStatus.CANCELLED, BookingStatus.NO_SHOW]), distinct=True),
-        last_visit=Max('bookings__check_in', filter=Q(bookings__status__in=[BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT])),
+        cancellations=Count(
+            'bookings', filter=Q(bookings__status__in=[BookingStatus.CANCELLED, BookingStatus.NO_SHOW]), distinct=True
+        ),
+        last_visit=Max(
+            'bookings__check_in', filter=Q(bookings__status__in=[BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT])
+        ),
         total_paid=Coalesce(Subquery(paid, output_field=money), Value(Decimal('0')), output_field=money),
         avg_rating=Avg('reviews__rating'),
     )
@@ -47,10 +52,10 @@ class GuestListCreateView(generics.ListCreateAPIView):
         search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(
-                Q(first_name__icontains=search) |
-                Q(last_name__icontains=search) |
-                Q(email__icontains=search) |
-                Q(phone__icontains=search)
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(email__icontains=search)
+                | Q(phone__icontains=search)
             )
         return with_history(qs).order_by('last_name', 'first_name')
 

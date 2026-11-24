@@ -1,6 +1,6 @@
 """Reporting and analytics views scoped strictly to the authorized hotel."""
 from datetime import date
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count
 from rest_framework.views import APIView
 from rest_framework.response import Response
 

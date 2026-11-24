@@ -42,7 +42,6 @@ class BookingSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-
     def get_paid_amount(self, obj):
         from apps.payments.refunds import paid_and_refunded
         return str(paid_and_refunded(obj)[0])

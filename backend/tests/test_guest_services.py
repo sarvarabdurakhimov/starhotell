@@ -13,7 +13,7 @@ from apps.bookings.services import create_booking
 from apps.hotels.models import HotelSettings
 from apps.memberships.models import HotelRole
 from apps.payments.models import Payment
-from apps.room_service.models import GuestRequest, OrderStatus, RequestStatus, ServiceOrder
+from apps.room_service.models import GuestRequest, RequestStatus, ServiceOrder
 from apps.room_service.services import bill, create_order
 from apps.telegram_bot import services as bot_svc
 from apps.telegram_bot.models import SentReminder

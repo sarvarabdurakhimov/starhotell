@@ -1,5 +1,4 @@
 """Financial and operating expense tracking with traceable reversals and approvals."""
-from decimal import Decimal
 from django.db import models
 
 from apps.common.money import CURRENCY, CURRENCY_CHOICES

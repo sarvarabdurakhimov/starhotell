@@ -41,7 +41,9 @@ class TelegramChat(TimestampedModel):
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     phone = models.CharField(max_length=30, blank=True)
-    guest = models.ForeignKey('guests.Guest', on_delete=models.SET_NULL, null=True, blank=True, related_name='telegram_chats')
+    guest = models.ForeignKey(
+        'guests.Guest', on_delete=models.SET_NULL, null=True, blank=True, related_name='telegram_chats'
+    )
 
     state = models.CharField(max_length=30, blank=True)
     data = models.JSONField(default=dict, blank=True)
