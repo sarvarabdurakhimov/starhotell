@@ -9,7 +9,7 @@ export default function AuthLayout({
     <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-stone-100">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <Link href="/" className="inline-flex items-center gap-2">
-          <span className="font-serif tracking-wider text-2xl font-bold text-stone-900">StarHotel</span>
+          <img src="/logo.png" alt="StarHotel" className="w-24 h-24 object-contain" />
         </Link>
       </div>
 

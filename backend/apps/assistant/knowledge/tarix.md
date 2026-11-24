@@ -236,3 +236,8 @@ haqiqiy bazada ishga tushiradi (qaytarib bo'lmaydi) — oldin zaxira nusxa.
   - Mahalliy ma'lumotlar (7 foydalanuvchi, mehmonxona, 42 xona, 21 mehmon, 10 bron, bot, menyu va h.k.) serverga
     ko'chirildi. @starhotell_bot endi serverda (webhook), menyu tugmasi Mini App'ni ochadi; mahalliy polling
     to'xtatildi. Panel: https://frontend-production-775fb9b8.up.railway.app (eski login/parollar bilan).
+- 15-vazifa (2026-11-24): Logotip yangisiga almashtirildi (oltin "S" + yulduz, ko'k fon, "StarHotel" yozuvi):
+  - Eski `public/logo.png` va `public/hero-hotel.png` boshqa mehmonxonaning (Hutton Hotel) logotipi edi — yangisi bilan almashtirildi.
+  - Brauzer belgisi: `src/app/icon.png` (512) va `src/app/apple-icon.png` (180).
+  - Logotip qo'yilgan joylar: panel yuqori paneli, bosh sahifa (sarlavha va pastki qism), kirish sahifasi, `/learning`.
+  - Serverga (Railway frontend) hali chiqarilmagan.

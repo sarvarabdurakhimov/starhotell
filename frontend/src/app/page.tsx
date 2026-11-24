@@ -64,9 +64,7 @@ export default function HomePage() {
       <header className="bg-stone-900 text-stone-100 border-b border-stone-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded bg-stone-800 border border-stone-700 flex items-center justify-center text-base">
-              🏛️
-            </div>
+            <img src="/logo.png" alt="StarHotel" className="w-9 h-9 object-contain" />
             <span className="font-serif text-lg font-bold tracking-widest uppercase text-white">
               StarHotel
             </span>
@@ -365,6 +363,7 @@ export default function HomePage() {
       <footer className="bg-stone-900 text-stone-400 py-8 px-6 border-t border-stone-800 text-xs">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="" className="w-6 h-6 object-contain" />
             <span className="text-white font-serif font-bold uppercase">StarHotel</span>
           </div>
           <div className="flex items-center gap-4 text-[11px]">
