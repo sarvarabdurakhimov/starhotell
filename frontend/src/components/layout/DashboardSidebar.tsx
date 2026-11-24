@@ -54,7 +54,6 @@ export function DashboardSidebar() {
           { label: "Xonalar", href: `${base}/rooms`, icon: IconBed },
           { label: "Bronlar", href: `${base}/bookings`, icon: IconCalendarCheck },
           { label: "Mehmonlar", href: `${base}/guests`, icon: IconAddressBook },
-          { label: "Buyurtmalar", href: `${base}/orders`, icon: IconToolsKitchen2 },
           { label: "Sharhlar", href: `${base}/reviews`, icon: IconStar },
           { label: "Hisobotlar", href: `${base}/reports`, icon: IconChartBar },
         ];
