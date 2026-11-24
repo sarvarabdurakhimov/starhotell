@@ -196,8 +196,8 @@ def create_request(chat: TelegramChat, room_type_id: int, check_in: date, check_
             continue  # taken a moment ago; try the next room
         notify_managers(bot, (
             f"🆕 Telegram bron so'rovi <b>{booking.reference}</b>\n"
-            f"{guest.full_name}, {guest.phone}\n"
-            f"{room.room_type.name} · {room.room_number}-xona\n"
+            f"{html.escape(guest.full_name)}, {html.escape(guest.phone or '')}\n"
+            f"{html.escape(room.room_type.name)} · {html.escape(room.room_number)}-xona\n"
             f"{fmt_date(check_in)} — {fmt_date(check_out)}, {guests} kishi\n"
             f"{price_text(bot, booking.total_amount)}\n\nPanel → Bronlar → Tasdiqlash"
         ))
@@ -322,7 +322,8 @@ def save_rating(chat: TelegramChat, booking_id: int, rating: int):
     )
     if not created:
         return None
-    notify_managers(chat.bot, f"{'⭐' * rating} ({rating}/5) — {booking.guest.full_name}, {booking.reference}")
+    guest_name = html.escape(booking.guest.full_name)
+    notify_managers(chat.bot, f"{'⭐' * rating} ({rating}/5) — {guest_name}, {booking.reference}")
     return booking
 
 
@@ -353,8 +354,8 @@ def request_cancel(booking: Booking):
     bot = booking.telegram_chat.bot
     paid = paid_total(booking)
     text = (f"📨 <b>{booking.reference}</b>: mijoz bronni bekor qilishni so'rayapti.\n"
-            f"👤 {booking.guest.full_name} {booking.guest.phone or ''}\n"
-            f"🛏 {booking.room.room_number} ({booking.room.room_type.name})\n"
+            f"👤 {html.escape(booking.guest.full_name)} {html.escape(booking.guest.phone or '')}\n"
+            f"🛏 {html.escape(booking.room.room_number)} ({html.escape(booking.room.room_type.name)})\n"
             f"📅 {fmt_date(booking.check_in)} — {fmt_date(booking.check_out)}\n")
     if paid:
         text += f"💳 To'langan: {price_text(bot, paid)}\n"

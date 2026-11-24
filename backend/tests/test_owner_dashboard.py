@@ -51,14 +51,15 @@ class TestOwnerPermissionsAndSecurity:
 
     def test_owner_can_appoint_manager(self, api_client, hotel_factory, user_factory):
         hotel, owner = hotel_factory(name='StarHotel Grand')
-        target_user = user_factory(email='new_manager@starhotel.com')
-
         api_client.force_authenticate(user=owner)
 
         url = reverse('memberships:invite', kwargs={'hotel_id': hotel.id})
-        response = api_client.post(url, {'email': target_user.email, 'role': 'manager'})
+        response = api_client.post(url, {
+            'email': 'new_manager@starhotel.com', 'role': 'manager',
+            'first_name': 'Nodira', 'password': 'Kuchli-parol-2026'})
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['role'] == 'manager'
+        assert response.data['account_created'] is True
 
     def test_expense_auditable_reversal(self, api_client, hotel_factory):
         hotel, owner = hotel_factory(name='StarHotel Grand')

@@ -33,6 +33,8 @@ jobs:
         with:
           python-version: '3.13'
           cache: 'pip'
+          # The requirements live in backend/requirements/, not a root requirements.txt
+          cache-dependency-path: 'backend/requirements/*.txt'
 
       - name: Install dependencies
         working-directory: ./backend

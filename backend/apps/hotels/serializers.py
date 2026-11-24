@@ -44,3 +44,10 @@ class HotelCreateSerializer(serializers.ModelSerializer):
             'city', 'state_province', 'postal_code', 'country', 'timezone',
             'locale', 'star_rating', 'description', 'organization',
         )
+
+    def validate_organization(self, organization):
+        """A new hotel may join only an organization the requester owns."""
+        request = self.context.get('request')
+        if organization and (not request or organization.owner_id != request.user.id):
+            raise serializers.ValidationError("Bu tashkilotga mehmonxona qo'sha olmaysiz.")
+        return organization

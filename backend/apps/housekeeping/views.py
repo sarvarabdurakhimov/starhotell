@@ -9,6 +9,11 @@ def _check_room_in_hotel(serializer, hotel_id):
     room = serializer.validated_data.get('room')
     if room and str(room.hotel_id) != str(hotel_id):
         raise ValidationError({'room': 'Room does not belong to this hotel.'})
+    worker = serializer.validated_data.get('assigned_to')
+    if worker:
+        from apps.memberships.models import HotelMembership
+        if not HotelMembership.objects.filter(hotel_id=hotel_id, user=worker, is_active=True).exists():
+            raise ValidationError({'assigned_to': "Bu xodim shu mehmonxonada ishlamaydi."})
 
 
 class HousekeepingTaskListCreateView(generics.ListCreateAPIView):

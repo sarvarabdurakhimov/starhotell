@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 
 from apps.common.permissions import IsHotelManager, IsHotelMember
 from apps.users.models import User
-from .models import HotelMembership
+from .models import HotelMembership, HotelRole
 from .serializers import HotelMembershipSerializer, InviteMemberSerializer
 
 logger = logging.getLogger(__name__)
@@ -85,6 +85,14 @@ class InviteMemberView(APIView):
         # New email: create the account with the name and password the owner typed.
         user = User.objects.filter(email__iexact=email).first()
         account_created = False
+        if user is not None and not self._may_attach(request.user, user, hotel_id):
+            # Attaching someone else's account without their consent would let this hotel
+            # act on it (and, before, reset its password). Only accounts this hotel already
+            # had, or staff of another hotel the same owner runs, can be added by email.
+            return Response(
+                {'email': ["Bu email bilan akkaunt allaqachon bor. Xodim uchun boshqa email kiriting."]},
+                status=status.HTTP_409_CONFLICT,
+            )
         if user is None:
             data = serializer.validated_data
             password = data.get('password') or ''
@@ -116,7 +124,8 @@ class InviteMemberView(APIView):
         membership, created = HotelMembership.objects.get_or_create(
             hotel_id=hotel_id,
             user=user,
-            defaults={'role': role, 'invited_by': request.user, 'is_active': True},
+            defaults={'role': role, 'invited_by': request.user, 'is_active': True,
+                      'account_created': account_created},
         )
         if not created:
             if membership.is_active:
@@ -136,6 +145,15 @@ class InviteMemberView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
+    @staticmethod
+    def _may_attach(inviter, user, hotel_id) -> bool:
+        """An existing account may be added only if it already belonged to this hotel
+        (re-hiring former staff) or it works at another hotel this inviter owns."""
+        if HotelMembership.objects.filter(hotel_id=hotel_id, user=user).exists():
+            return True
+        owned = HotelMembership.objects.filter(user=inviter, role='owner', is_active=True).values('hotel_id')
+        return HotelMembership.objects.filter(user=user, is_active=True, hotel_id__in=owned).exists()
+
 
 class UpdateMemberRoleView(APIView):
     """
@@ -148,6 +166,8 @@ class UpdateMemberRoleView(APIView):
         new_role = request.data.get('role')
         if not new_role:
             return Response({'detail': 'role field is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if new_role not in HotelRole.values:
+            return Response({'role': ["Noto'g'ri rol."]}, status=status.HTTP_400_BAD_REQUEST)
 
         is_owner = HotelMembership.objects.filter(
             hotel_id=hotel_id,
@@ -255,6 +275,13 @@ class SetMemberPasswordView(APIView):
             return Response({'detail': "Bu akkauntning parolini o'zgartirib bo'lmaydi."}, status=status.HTTP_403_FORBIDDEN)
         if membership.role == 'manager' and not is_owner:
             return Response({'detail': "Menejer parolini faqat boshliq o'zgartira oladi."}, status=status.HTTP_403_FORBIDDEN)
+        # Only a login this hotel created itself may be reset here; an account the person made
+        # (or another hotel made) belongs to them.
+        if not membership.account_created:
+            return Response(
+                {'detail': "Bu akkauntni xodimning o'zi ochgan, parolini faqat o'zi o'zgartira oladi."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         # An account that also works at another hotel is not ours to reset.
         if HotelMembership.objects.filter(user=user, is_active=True).exclude(hotel_id=hotel_id).exists():
             return Response(

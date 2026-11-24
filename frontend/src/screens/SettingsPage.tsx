@@ -162,7 +162,8 @@ export default function HotelStaffAndSettingsPage() {
 
   // Invite Staff Mutation
   // New email -> the account is created with this name and password.
-  // Existing email -> that account is added to the hotel and keeps its own password.
+  // Existing email -> added only if it is former staff here or works at another hotel of this owner
+  // (it keeps its own password); any other existing account is refused (409), so use a new email.
   const inviteMutation = useMutation({
     mutationFn: async (payload: typeof emptyInvite) =>
       apiClient.post<{ account_created: boolean }>(`/memberships/hotels/${hotelId}/members/invite/`, {

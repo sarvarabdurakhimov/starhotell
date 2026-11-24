@@ -39,6 +39,9 @@ class HotelMembership(TimestampedModel):
         related_name='sent_invitations',
     )
     notes = models.TextField(blank=True)
+    # True when this hotel created the login itself (invite with a new email). Only such accounts
+    # may get a new password from the hotel's owner/manager; anyone else's account is not theirs.
+    account_created = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'hotel membership'

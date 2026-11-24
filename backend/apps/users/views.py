@@ -8,9 +8,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import AuthenticationFailed, Throttled
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from . import login_guard
 from .models import User
 from .serializers import (
     ChangePasswordSerializer,
@@ -72,8 +74,16 @@ class LoginView(APIView):
     throttle_scope = 'auth'
 
     def post(self, request: Request):
+        email = str(request.data.get('email') or '')
+        if login_guard.is_locked(email):
+            raise Throttled(detail="Juda ko'p noto'g'ri urinish. 15 daqiqadan keyin qayta urinib ko'ring.")
         serializer = LoginSerializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except AuthenticationFailed:
+            login_guard.record_failure(email)
+            raise
+        login_guard.reset(email)
         user: User = serializer.validated_data['user']
 
         # Update last login IP

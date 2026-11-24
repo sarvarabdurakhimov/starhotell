@@ -70,7 +70,11 @@ def test_commands_answer_from_the_history_file(monkeypatch):
     cmd = bot(monkeypatch)
     assert '6. (' in say(cmd, 111, '/vazifalar')
     assert '12 500' in say(cmd, 111, '/ozgarishlar 4')
-    assert 'push' in say(cmd, 111, '/holat')
+    # /holat replies with the file's "Holat" section, whatever it currently says
+    say(cmd, 111, '/holat')
+    holat = services.section(services.load_knowledge(), 'Holat')
+    assert holat and ''.join(text for _, text in cmd.api.sent[-len(services.split_message(holat)):]) == ''.join(
+        services.split_message(holat))
     assert cmd.assistant.client.requests == []  # no Claude call needed for these
 
 

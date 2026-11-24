@@ -50,3 +50,19 @@ def room_setup(db, hotel_factory):
         )
         return room_type, room
     return setup
+
+
+@pytest.fixture
+def room_factory(db):
+    def create_room(hotel, room_number="101", **extra):
+        room_type = RoomType.objects.create(hotel=hotel, name="Standard", base_price="100.00", max_occupancy=2)
+        return Room.objects.create(hotel=hotel, room_type=room_type, room_number=room_number, floor=1, **extra)
+    return create_room
+
+
+@pytest.fixture
+def guest_factory(db):
+    def create_guest(hotel, first_name="Aziz", last_name="Karimov", **extra):
+        from apps.guests.models import Guest
+        return Guest.objects.create(hotel=hotel, first_name=first_name, last_name=last_name, **extra)
+    return create_guest

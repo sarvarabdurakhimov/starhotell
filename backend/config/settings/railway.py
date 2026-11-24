@@ -16,3 +16,13 @@ if RAILWAY_HOST:
 
 # Railway's health checks come from this internal host
 ALLOWED_HOSTS = [*ALLOWED_HOSTS, 'healthcheck.railway.app']
+
+# One cache shared by all gunicorn workers (Railway has no Redis here): throttles and the
+# per-account login lockout must count every attempt, not each worker's share of them.
+# The table is created on start (`createcachetable` in Dockerfile.railway).
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'hms_cache',
+    }
+}

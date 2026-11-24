@@ -168,7 +168,9 @@ class TestManagerPanel:
         HotelMembership.objects.create(hotel=hotel, user=manager, role=HotelRole.MANAGER, is_active=True)
         panel = APIClient()
         panel.force_authenticate(manager)
-        detail = lambda name: reverse(f'bookings:{name}', kwargs={'hotel_id': hotel.id, 'pk': pk})
+
+        def detail(name):
+            return reverse(f'bookings:{name}', kwargs={'hotel_id': hotel.id, 'pk': pk})
 
         listed = panel.get(reverse('bookings:list_create', kwargs={'hotel_id': hotel.id}), {'page_size': 100})
         assert listed.status_code == 200, listed.data
