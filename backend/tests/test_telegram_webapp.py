@@ -147,3 +147,37 @@ def test_app_button_needs_an_https_address():
         assert webapp.webapp_url(bot) == ''
     with override_settings(TELEGRAM_WEBAPP_URL='https://starhotel.vercel.app/'):
         assert webapp.webapp_url(bot) == 'https://starhotel.vercel.app/tg/5'
+
+
+@pytest.mark.django_db
+class TestManagerPanel:
+    """A Mini App booking reaches the manager panel, and the manager can approve, check in and check out."""
+
+    def test_mini_app_booking_is_approved_checked_in_and_out_from_the_panel(self, api_client, user_factory, setup):
+        from rest_framework.test import APIClient
+        from apps.memberships.models import HotelMembership, HotelRole
+
+        hotel, room_type, _, bot, sent = setup
+        res = auth(api_client).post(url('webapp_book', bot), {
+            **stay(), 'room_type_id': room_type.id, 'first_name': 'Aziz', 'last_name': 'Karimov',
+            'phone': '+998901234567'}, format='json')
+        assert res.status_code == 201, res.data
+        pk, ref = res.data['id'], res.data['reference']
+
+        manager = user_factory(email='manager@example.com')
+        HotelMembership.objects.create(hotel=hotel, user=manager, role=HotelRole.MANAGER, is_active=True)
+        panel = APIClient()
+        panel.force_authenticate(manager)
+        detail = lambda name: reverse(f'bookings:{name}', kwargs={'hotel_id': hotel.id, 'pk': pk})
+
+        listed = panel.get(reverse('bookings:list_create', kwargs={'hotel_id': hotel.id}), {'page_size': 100})
+        assert listed.status_code == 200, listed.data
+        rows = listed.data['results'] if isinstance(listed.data, dict) else listed.data
+        row = next(b for b in rows if b['reference'] == ref)
+        assert (row['source'], row['status']) == ('telegram', BookingStatus.PENDING)
+
+        approved = panel.post(detail('approve'))
+        assert approved.status_code == 200, approved.data
+        assert approved.data['status'] == BookingStatus.CONFIRMED  # no online payment set up
+        assert panel.post(detail('check_in')).data['status'] == BookingStatus.CHECKED_IN
+        assert panel.post(detail('check_out')).data['status'] == BookingStatus.CHECKED_OUT

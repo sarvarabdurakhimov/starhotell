@@ -367,7 +367,9 @@ def _expire_one(booking_id: int, reason: str, note: str):
     """Cancel one lapsed request. Safe to run from several processes at once (web, bot, cron):
     the row is locked and re-checked, so a request is cancelled - and the guest told - only once."""
     with transaction.atomic():
-        b = (Booking.objects.select_for_update().select_related('telegram_chat__bot', 'room')
+        # of=('self',): lock only the booking row. PostgreSQL refuses FOR UPDATE on the
+        # nullable side of the outer join that select_related('telegram_chat') produces.
+        b = (Booking.objects.select_for_update(of=('self',)).select_related('telegram_chat__bot', 'room')
              .filter(pk=booking_id, status=BookingStatus.PENDING).first())
         if not b:
             return None  # already handled elsewhere
